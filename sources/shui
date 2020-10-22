@@ -2,7 +2,7 @@
 #!/bin/bash
 #shui can be embedded in either shell
 
-#shui - v0.9.2
+#shui - v0.9.3
 #this is the demo script, use it to test syntax out or run the demo function with: "./shui demo"
 #to use in your script: copy and paste the entire function shui {...} into your script
 
