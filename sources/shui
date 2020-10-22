@@ -2,10 +2,9 @@
 #!/bin/bash
 #shui can be embedded in either shell
 
-#v0.9.1 - still using system events by default
-
-#this is the demo script, use it to test things out in shui or run the demo function with: "./shui demo"
-#to use in your script copy and paste the entire function shui {...} into your script
+#shui - v0.9.2
+#this is the demo script, use it to test syntax out or run the demo function with: "./shui demo"
+#to use in your script: copy and paste the entire function shui {...} into your script
 
 #hold the command key down for xtrace debugging when you run this script
 commandKeyDown=$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.modifierFlags & $.NSEventModifierFlagCommand) > 1" 2>/dev/null)
@@ -176,6 +175,13 @@ if [ -z "${promptString}" -a "${uiType}" != "color" -a "${uiType}" != "url" ]; t
 	return
 fi
 
+#if we have set an application 
+if [ -n "${applicationNameArg}" ]; then
+	#used to default to "System Events"
+	tellApp_AS="tell application \"${applicationNameArg}\""
+	endTell_AS="end tell"
+fi
+
 #see what kind of window we need to show and ready buttons and Applescript code
 case "${uiType}" in
 	"list")		
@@ -273,7 +279,7 @@ case "${uiType}" in
 		#generate the applescript and assign to variable using read and a heredoc
 		#https://stackoverflow.com/questions/1167746/how-to-assign-a-heredoc-value-to-a-variable-in-bash
 		read -r -d '' APPLESCRIPT <<-EOF
-			tell application "${applicationNameArg:-System Events}"
+			${tellApp_AS}
 				activate
 				${beep_AS}
 				with timeout of $timeoutSecondsAppleScript seconds
@@ -294,7 +300,7 @@ case "${uiType}" in
 						return dialogAnswer as string
 					end if
 				end timeout
-			end tell
+			${endTell_AS}
 			EOF
 	;;		
 	"file"*|"folder")
@@ -355,7 +361,7 @@ case "${uiType}" in
 		
 			#generate the applescript and assign to variable using read and a heredoc
 			read -r -d '' APPLESCRIPT <<-EOF
-			tell application "${applicationNameArg:-System Events}"
+			${tellApp_AS}
 				activate
 				${beep_AS}
 				with timeout of $timeoutSecondsAppleScript seconds
@@ -371,7 +377,7 @@ case "${uiType}" in
 						set dialogAnswer to POSIX path of dialogAnswer
 					end if
 				end timeout
-			end tell
+			${endTell_AS}
 			EOF
 			
 		;;
@@ -381,7 +387,7 @@ case "${uiType}" in
 
 		#generate the applescript and assign to variable using read and a heredoc
 		read -r -d '' APPLESCRIPT <<-EOF
-		tell application "${applicationNameArg:-System Events}"
+		${tellApp_AS}
 			activate
 			${beep_AS}
 			with timeout of $timeoutSecondsAppleScript seconds
@@ -397,7 +403,7 @@ case "${uiType}" in
 					set dialogAnswer to POSIX path of dialogAnswer
 				end if
 			end timeout
-		end tell
+		${endTell_AS}
 		EOF
 	;;		
 	"color")
@@ -416,13 +422,13 @@ case "${uiType}" in
 		
 		#generate the applescript and assign to variable using read and a heredoc
 		read -r -d '' APPLESCRIPT <<-EOF
-			tell application "${applicationNameArg:-System Events}"
+			${tellApp_AS}
 				activate
 				${beep_AS}
 				with timeout of $timeoutSecondsAppleScript seconds
 					set theColor to choose color ${defaultColor_AS}
 				end timeout
-			end tell
+			${endTell_AS}
 			EOF
 	;;
 	"url")
@@ -444,13 +450,13 @@ case "${uiType}" in
 			
 		#generate the applescript and assign to variable using read and a heredoc
 		read -r -d '' APPLESCRIPT <<-EOF
-		tell application "${applicationNameArg:-System Events}"
+		${tellApp_AS}
 			activate
 			${beep_AS}
 			with timeout of $timeoutSecondsAppleScript seconds
 				choose URL ${showingService_AS}
 			end timeout
-		end tell
+		${endTell_AS}
 		EOF
 	;;
 	"alert"|"button"|"text"|*)
@@ -565,7 +571,7 @@ case "${uiType}" in
 				"stop"|"0")
 				
 					#if no app then this is System Event with cannot show a "stop" icon
-					if [ -z "${applicationNameArg}" ]; then
+					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
 						#alert icon to pass to alertUserConsole
 						local alertIconUnixPath="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertStopIcon.icns"
 					#otherwise any other app will overlay their icon over the stop sign
@@ -576,7 +582,7 @@ case "${uiType}" in
 				;;
 				"caution"|"2")
 					#if no app then this is System Event with cannot show a "caution" icon
-					if [ -z "${applicationNameArg}" ]; then
+					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
 						#alert icon to pass to alertUserConsole
 						local alertIconUnixPath="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertCautionIcon.icns"
 					#otherwise any other app will overlay their icon over the stop sign
@@ -587,7 +593,7 @@ case "${uiType}" in
 				;;
 				"note"|"1")
 					#if no app then this is System Event with cannot show a "note" icon
-					if [ -z "${applicationNameArg}" ]; then
+					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
 						#alert icon to pass to alertUserConsole
 						local alertIconUnixPath="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertNoteIcon.icns"
 					#otherwise any other app will overlay their icon over the stop sign
@@ -658,24 +664,24 @@ case "${uiType}" in
 			#background style windows are single button only, no text, since results cannot be captured
 			#generate the applescript and assign to variable using read and a heredoc
 			read -r -d '' APPLESCRIPT <<-EOF
-			tell application "${applicationNameArg:-System Events}"
+			${tellApp_AS}
 				activate
 				${beep_AS}
 				with timeout of $timeoutSecondsAppleScript seconds
 					set dialogAnswer to display ${windowType} "${promptString}" ${alertLevel_AS} ${message_AS} ${title_AS} ${withIcon_AS} ${buttons_AS} ${giveup_AS} ${defaultButton_AS} ${cancelButton_AS}
 				end timeout
-			end tell
+			${endTell_AS}
 			EOF
 		else
 			#generate the applescript with the text reply kind of window since background is not appropriate to capture input
 			read -r -d '' APPLESCRIPT <<-EOF
-			tell application "${applicationNameArg:-System Events}"
+			${tellApp_AS}
 				activate
 				${beep_AS}
 				with timeout of $timeoutSecondsAppleScript seconds
 					set dialogAnswer to display ${windowType} "${promptString}" ${alertLevel_AS} ${message_AS} ${defaultAnswer_AS} ${withHiddenAnswer_AS} ${title_AS} ${withIcon_AS} ${buttons_AS} ${giveup_AS} ${defaultButton_AS} ${cancelButton_AS}
 				end timeout
-			end tell
+			${endTell_AS}
 			EOF
 		fi
 	;;
@@ -892,7 +898,7 @@ shui folder -p "Pick folders starting at root" -m -d "/" -V
 
 function alert_demo
 {
-shui alert -p "Alert Prompt" -P "Alerts do not have titles, the prompt text will be used for that\nThe icon cannot be specified it will be the application, which defaults to System Events\nThis is an info/warning level alert (default)..." -b "OK" -d 1 -V
+shui alert -p "Alert Prompt" -P "Alerts do not have titles, the prompt text will be bolder though\nThe icon will be the application specified with -a or a folder if no application is specified\nThis is an info/warning level alert (default)..." -b "OK" -d 1 -V
 
 shui alert -p "Bold Alert Prompt" -P "The critical alert level overlays the application icon with a caution sign" -b "This,That,Cancel" -d 1 -c 3 -L "critical" -V
 
@@ -902,19 +908,19 @@ shui alert -p "Specify an application with the -a option" -P "The icon is jazzed
 function znonBlockingButton_demo
 {
 #timeout
-shui button -p "Non-blocking window (-n) with give up of 10 seconds, the script proceeds (not blocked) and no values are returned\n\nNote: Give up time will affect subsequent windows if this is still open...\n" -b "Wait for it..." -g 10 -i "caution" -n -V
+shui button -a "System Events" -p "Non-blocking window (-n) with give up of 10 seconds, the script proceeds (not blocked) and no values are returned\n\nNote: Give up time will affect subsequent System Events windows if this is still open...\n" -b "Wait for it..." -g 10 -i "caution" -n -V
 echo "Script proceeding, sleeping 5 seconds..."
 sleep 5
-shui button -p "Like this one...\nThis one will get the time out from the previous window..." -b "Uh oh" -g 10 -i "caution" -V
+shui button -a "System Events" -p "Like this one...\nThis one will get the time out from the previous window, so only specify -a \"System events\" if you want to be able to kill the non-blocking window later..." -b "Uh oh" -g 10 -i "caution" -V
 echo "Script proceeding, sleeping 5 seconds..."
 sleep 5
-shui button -p "This window is now covering a window that is stuck... and this has a give up of 1 hour BUT it can be killed along with all other System Events based windows with -X\n\nWait for it... (10 seconds)" -b "Wait for it..." -g 3600 -i "stop" -d 1 -n -V
+shui button -a "System Events" -p "This window is now covering a window that is stuck... and this has a give up of 1 hour BUT it can be killed along with all other System Events based windows with -X\n\nWait for it... (10 seconds)" -b "Wait for it..." -g 3600 -i "stop" -d 1 -n -V
 echo "Script proceeding, sleeping 10 seconds..."
 sleep 10
-shui button -p 'BOOM!\nPrevious windows were cleared with -X\n' -X -b "OK" -V -N -i "/System/Library/CoreServices/Finder.app"
+shui button -p 'BOOM!\nPrevious windows with System Events as the application can be cleared with -X\n' -X -b "OK" -V -N -i "/System/Library/CoreServices/Finder.app"
 echo "Script proceeding, sleeping 5 seconds..."
 sleep 5
-shui alert -p "Alerts can be non-Blocking too" -P "They sure can...\n\nBut if you specify an app with -a they cannot be killed with -X" -N  -L "critical" -B 1 -X
+shui alert -p "Alerts can be non-Blocking too" -P "They sure can...\n\nIf you specify any other app besides System Events with -a they cannot be killed with -X" -N  -L "critical" -B 1 -X
 echo "Script proceeding, sleeping 7 seconds..."
 sleep 7
 }
