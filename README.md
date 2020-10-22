@@ -3,7 +3,7 @@ shui is a shell script wrapper for presenting user dialogs in Applescript withou
 
 Download shui from the sources folder and if need be make executable with `chmod ugo+x ./shui` while in the same folder.
 
-To get help: `./shui help`
+To get help: `./shui help` 
 To see a demo of all the actions: `./shui demo`
 
 * shui is meant to be embedded in your scripts
