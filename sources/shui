@@ -175,6 +175,11 @@ if [ -z "${promptString}" -a "${uiType}" != "color" -a "${uiType}" != "url" ]; t
 	return
 fi
 
+#color seems to need an application
+if [ "${uiType}" = "color" ]; then
+	applicationNameArg="System Events"
+fi
+
 #if we have set an application 
 if [ -n "${applicationNameArg}" ]; then
 	#used to default to "System Events"
