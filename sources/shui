@@ -2,7 +2,7 @@
 #!/bin/bash
 #shui can be embedded in either shell
 
-#shui - v0.9.4
+#shui - v0.9.5
 #this is the demo script, use it to test syntax out or run the demo function with: "./shui demo"
 #to use in your script: copy and paste the entire function shui {...} into your script
 
@@ -551,7 +551,6 @@ case "${uiType}" in
 			local defaultButton_AS="default button \"${defaultOption}\""
 		fi
 
-		echo "cancelButton: $cancelButton"
 		#if we have a cancel button specified... see if it's a number
 		if [ -n "${cancelButton}" -a "${cancelButton}" = "$(bc 2>/dev/null <<< "${cancelButton}")" ]; then
 			#ensure it's between 1 less than or equal to the total button
@@ -813,22 +812,26 @@ multiLineText="You can put lots of text in a window
 shui button -p "${multiLineText}" -b "Yes,No,Maybe" -t "Greetings" -i "caution" -d "Yes" -V
 }
 
-#Unicode characters can be encoded using jpt the JSON Power Tool: https://github.com/brunerd/jpt
+#unencode emoji work just fine also (just not on Jamf)
 function 1emoji_demo
 {
 multiLineText="shui works with Unicode™ and Emoji 
 
 \0342\0234\0205 Dialogs, buttons, pre-fills, etc...
 
-Note: Multibyte emojis in Jamf Pro scripts MUST be encoded, you may use...
-UTF-8 Octal encoding: \0360\0237\0230\0216
-UTF-8 Hex encoding: \xf0\x9f\x98\x8e
-Unicode CodePoint (zsh only): \U0001f60e
+Note: Multibyte emojis in Jamf Pro scripts MUST be encoded, you may reliably use these encoding schemes
 
-\"Neato\", yeah?"
+UTF-8 \\\\xhh Hex encoding:
+\\\\xf0\\\\x9f\\\\x98\\\\x8e = \xf0\x9f\x98\x8e
+
+UTF-8 \\\\0nnn Octal encoding:
+\\\\0360\\\\0237\\\\0230\\\\0216 = \0360\0237\0230\0216
+
+Unicode characters can be encoded using jpt the JSON Power Tool: https://github.com/brunerd/jpt
+"
 
 #you can use mutliline variables to neatly compose your invocation
-shui button -p "${multiLineText}" -b "\0360\0237\0237\0242 Yes,\xf0\x9f\x9b\x91 No,\U000026a0️Maybe" -t "\U0001f4e3 Greetings \xf0\x9f\x94\x8a" -i "caution" -d "\xf0\x9f\x9f\xa2 Yes" -V
+shui button -p "${multiLineText}" -b "\0360\0237\0237\0242 Yes,\xf0\x9f\x9b\x91 No,\0342\0232\0240\0357\0270\0217Maybe" -t "\xf0\x9f\x93\xa3 Greetings \xf0\x9f\x94\x8a" -i "caution" -d "\xf0\x9f\x9f\xa2 Yes" -V
 }
 
 function text_demo
