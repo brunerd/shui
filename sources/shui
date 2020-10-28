@@ -2,7 +2,7 @@
 #!/bin/bash
 #shui can be embedded in either shell
 
-#shui - v0.9.5
+#shui - v0.9.5b
 #this is the demo script, use it to test syntax out or run the demo function with: "./shui demo"
 #to use in your script: copy and paste the entire function shui {...} into your script
 
@@ -589,7 +589,7 @@ case "${uiType}" in
 					#if no app then this is System Event with cannot show a "caution" icon
 					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
 						#alert icon to pass to alertUserConsole
-						local alertIconUnixPath="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertCautionIcon.icns"
+						local alertIconUnixPath=$(find "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/" -name 'AlertCaution*Icon.icns')
 					#otherwise any other app will overlay their icon over the stop sign
 					else
 						local alertIconName="caution"
