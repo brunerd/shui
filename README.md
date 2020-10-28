@@ -13,8 +13,11 @@ To see a demo of all the actions: `./shui demo`
 
 ## shui demo video
 
-See the shui demo in action:  
-[![shui demo](https://img.youtube.com/vi/Yms5oOvVfz0/0.jpg)](https://www.youtube.com/watch?v=Yms5oOvVfz0)
+See the shui demo in action on Catalina from the Terminal  
+[![shui demo on Catalina](https://img.youtube.com/vi/Yms5oOvVfz0/0.jpg)](https://www.youtube.com/watch?v=Yms5oOvVfz0)
+
+On Big Sur, with TCC pop-ups when run via Jamf Self Service  
+[![shui demo on Big Sur](https://img.youtube.com/vi/ZmA3iTZ8csE/0.jpg)](https://www.youtube.com/watch?v=ZmA3iTZ8csE)
 
 ## shui help contents
 ```
