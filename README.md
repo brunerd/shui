@@ -11,6 +11,11 @@ To see a demo of all the actions: `./shui demo`
 * shui can also output the Applescript you need to invoke via `osascript` in your own scripts (use the `-o` or `-V` option)
 * shui can be pronounced however you like, such as: "schway" or "shoe-eee", it is a contraction of shell + gui
 
+## shui demo video
+
+See the shui demo in action:  
+[![shui demo](https://img.youtube.com/vi/Yms5oOvVfz0/0.jpg)](https://www.youtube.com/watch?v=Yms5oOvVfz0)
+
 ## shui help contents
 ```
 shui - add Applescript user interaction to your shell script (https://github.com/brunerd/shui)
