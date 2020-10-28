@@ -2,7 +2,7 @@
 #!/bin/bash
 #shui can be embedded in either shell
 
-#shui - v0.9.5b
+#shui - v0.9.5c
 #this is the demo script, use it to test syntax out or run the demo function with: "./shui demo"
 #to use in your script: copy and paste the entire function shui {...} into your script
 
@@ -61,6 +61,10 @@ local defaultOption=""
 
 #default timeout (window remains, but script moves on), defaults to 3 days (max time) if this is unset
 local timeoutDefault=""
+
+#default to a calling app to own the Applescript window, this will cause an initial permission pop-up dialog in 10.14+
+# the calling app will also be unable to do anything within until the window is dismissed
+local defaultApplication=""
 
 #if we are picking colors default to this
 local defaultColorRGB="65535,65535,65535" #white
@@ -175,8 +179,13 @@ if [ -z "${promptString}" -a "${uiType}" != "color" -a "${uiType}" != "url" ]; t
 	return
 fi
 
-#color seems to need an application
-if [ "${uiType}" = "color" ]; then
+#if we have a default application and nothing is specified, use it
+if [ -z "${applicationNameArg}" -a -n "${defaultApplication}" ]; then
+	applicationNameArg="${defaultApplication}"
+fi
+
+#color seems needs an application, use System Events if not specified
+if [ "${uiType}" = "color" -a -z "$applicationNameArg" ]; then
 	applicationNameArg="System Events"
 fi
 
@@ -589,7 +598,7 @@ case "${uiType}" in
 					#if no app then this is System Event with cannot show a "caution" icon
 					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
 						#alert icon to pass to alertUserConsole
-						local alertIconUnixPath=$(find "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/" -name 'AlertCaution*Icon.icns')
+						local alertIconUnixPath=$(find "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/" -name 'AlertCaution*Icon.icns' | sort -r | head -n 1)
 					#otherwise any other app will overlay their icon over the stop sign
 					else
 						local alertIconName="caution"
