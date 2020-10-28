@@ -34,9 +34,10 @@ Required:
 
 Options (begins with UI type(s) which apply or "all"):
 
--a "<application>"	all (except filename): specify the application that will present the Applescript dialog, useful for alert to have an icon
+-a "<application>"	all (except filename): specify the application that will present the Applescript dialog, alert will have app icon and block app
 
--b "<button>;...;..."	button: max 3 button names, semi-colon/comma delimited (if commas AND semi-colons are present, semis win) defaults to Applescript "Cancel,OK"
+-b "<button>;...;..."	button: max 3 button names, comma or semi-colon delimited (if commas AND semi-colons are present, semis "win") 
+						if no buttons specified it defaults to the standard Applescript "Cancel,OK"
 -b "<OK>,[<Cancel>]"	list: max 2 button names, comma delimited, first is the OK button name, second is Cancel button name (optional)
 
 -B "n"			all: beep n number of times
@@ -87,11 +88,13 @@ Options (begins with UI type(s) which apply or "all"):
 -v			all: output global variables with value
 -V			all: output global variables with value plus Applescrtipt and raw returned "osascript" value
 
--X			alert/button: kill any System Events based windows (-a not specified), useful for non-Blocking
+-X			alert/button: kill any "System Events" based windows (-a specified), useful for non-Blocking without give up
 
-shui sets four GLOBAL variables in it's running context:
+shui sets four GLOBAL variables within the script's running context:
 	lastButton - value of button from button, text, and list replies
 	lastText - Text string from text reply
 	lastChoice - File or Folder Unix path from files/filename/folders
 	lastGaveUp - true or false. Only used with button and text reply type if a give up value is specified
+
+
 ```
