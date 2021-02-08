@@ -93,8 +93,8 @@ Options (begins with UI type(s) which apply or "all"):
 
 -t "Title text"		button/list/text: window title (can be hardcoded)
 
--v			all: output global variables with value
--V			all: output global variables with value plus Applescrtipt and raw returned "osascript" value
+-v			all: output results in format suitable for initializing shell variables
+-V			all: output results in format suitable for initializing shell variables plus Applescrtipt and raw returned "osascript" value
 
 -X			alert/button: kill any "System Events" based windows (-a specified), useful for non-Blocking without give up
 
