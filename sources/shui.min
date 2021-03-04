@@ -2,9 +2,9 @@
 #!/bin/bash
 #shui can be embedded in either shell
 
-#shui (min) - v0.9.8
+#shui (min) - v0.9.9
 #this is the demo script, use it to test syntax out or run the demo function with: "./shui demo"
-#to use in your script: copy and paste the entire function shui {...} into your script (lines 10-128)
+#to use in your script: copy and paste ONLY the function shui {...} into your script, OMIT the TEST FUNCTIONS
 
 ## BEGIN SHUI FUNCTION ##
 function shui
@@ -23,8 +23,8 @@ EOL
 #[ -n "$(pgrep 'jamfHelper')" ] && return
 #defaults - set global vars shui_defaultxxxxxx or hardcode
 local defaultIcon="${shui_defaultIcon}"
-local defaultTitle="${shui_defaultTitle}"
-local defaultOption="${shui_defaultOption}"
+[ -n "${shui_defaultTitle}" ] && local defaultTitle="$(echo -e "${shui_defaultTitle}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')"
+[ -n "${shui_defaultOption}" ] && local defaultOption="$(echo -e "${shui_defaultOption}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')"
 local timeoutDefault="${shui_timeoutDefault}"
 local defaultApplication="${shui_defaultApplication}"
 local defaultColorRGB="${shui_defaultColor:-65535,65535,65535}" #white
