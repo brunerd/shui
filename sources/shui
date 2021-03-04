@@ -2,9 +2,10 @@
 #!/bin/bash
 #shui can be embedded in either shell
 
-#shui - v0.9.8
+#shui - v0.9.9
 #this is the demo script, use it to test syntax out or run the demo function with: "./shui demo"
 #to use in your script: copy and paste the entire function shui {...} into your script
+#for reduced line count see shui.min
 
 #hold the Shift key down for xtrace debugging when you run this script
 shiftKeyDown=$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.modifierFlags & $.NSEventModifierFlagShift) > 1")
@@ -54,11 +55,11 @@ EOL
 #Unix path or App Bundle accepted (if they contsain icns, RIP in Big Sur)
 local defaultIcon="${shui_defaultIcon}"
 
-#default title
-local defaultTitle="${shui_defaultTitle}"
+#default title - process escaped text then escape \ and "
+[ -n "${shui_defaultTitle}" ] && local defaultTitle="$(echo -e "${shui_defaultTitle}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')"
 
 #default "default Option" for buttons (name or number) or for file/folder (default file path)
-local defaultOption="${shui_defaultOption}"
+[ -n "${shui_defaultOption}" ] && local defaultOption="$(echo -e "${shui_defaultOption}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')"
 
 #default timeout (window remains, but script moves on), defaults to 3 days (max time) if this is unset
 local timeoutDefault="${shui_timeoutDefault}"
