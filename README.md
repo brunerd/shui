@@ -64,7 +64,7 @@ Options (begins with UI type(s) which apply or "all"):
 -h			text: hidden text entry (dots)
 -h			file/folder: show hidden files in picker
 
--i "<path>"		button: path to icon file (a default can also be hardcoded)
+-i "<path>"		button: path to icon file or application bundle (Icon^M first, then Info.plist)
 
 -l "item,item,..."	list: items for list, comma delimited is default unless newline is detected (change delimiter with -D)
 
@@ -103,6 +103,5 @@ shui sets four GLOBAL variables within the script's running context:
 	lastText - Text string from text reply
 	lastChoice - File or Folder Unix path from files/filename/folders
 	lastGaveUp - true or false. Only used with button and text reply type if a give up value is specified
-
 
 ```
