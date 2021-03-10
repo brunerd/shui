@@ -185,7 +185,7 @@ if [ -z "${applicationNameArg}" -a -n "${defaultApplication}" ]; then
 fi
 
 #if we have a default icon (and it exists) and nothing is specified for -i, use it
-if [ -z "${iconArgument}" -a -f "${defaultIcon}" ]; then
+if [ -z "${iconArgument}" -a -e "${defaultIcon}" ]; then
 	iconArgument="${defaultIcon}"
 fi
 
