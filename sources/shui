@@ -40,9 +40,6 @@ EOL
 #10.8 and under are a no-go, 10.9+ only
 [ "$(cut -d. -f1 <<< $(sw_vers -productVersion))" -eq 10 -a "$(cut -d. -f2 <<< $(sw_vers -productVersion))" -le 8 ] && echo "shui requires macOS 10.9 and above" >&2 && return 1 
 
-#Note: macOS 10.10 and under must run shui as root due to the behavior of launchctl asuser
-[ "$(cut -d. -f1 <<< $(sw_vers -productVersion))" -eq 10 -a "$(cut -d. -f2 <<< $(sw_vers -productVersion))" -le 10 -a "$UID" -ne 0 ] && echo "shui must be run as root on macOS 10.9 and 10.10" >&2 && return 1 
-
 #if the silentMode or shui_silentMode flag is set to Y return
 [ "${shui_silentMode}" = "Y" -o "${silentMode}" = "Y" ] && return
 
@@ -102,19 +99,21 @@ elif [ -n "$BASH_VERSION" ]; then
 	unset OPTIND OPTARG
 fi
 
-#if you are not the console user and try to run this it won't work... warn
-#if [ "$UID" -ne 0 ]; then
-#	echo "[WARNING] you must be root to run with the -U (as User) flag"
-#fi
-
-#applescript is touchy about bootstrap contexts, for example if you are logged in as another user and not the console user, Applescript dialogs will fail even if run by root
-#if [ "$USER" != "$consoleUser" -a "$SUDO_USER" != "$consoleUser" ]; then
-#	echo "[ALERT] Console user ($consoleUser) ≠ sudo user (${SUDO_USER}). Applescript dialog may fail. Please use -U flag"
-#fi
-
 #command to run in the console user bootstrap context AND as the user context
 #necessary to accept text input with console user's keyboard localization
 local asuserPrefix="launchctl asuser ${consoleUserID} sudo -u ${consoleUser}"
+
+#10.9 and 10.10 launchctl asuser only runs as root
+if [ "$(cut -d. -f1 <<< $(sw_vers -productVersion))" -eq 10 -a "$(cut -d. -f2 <<< $(sw_vers -productVersion))" -le 10 ]; then
+	#unset if we are the console user
+	if [ "${USER}" = "${consoleUser}" ]; then
+		unset asuserPrefix
+	#early macOS versions got touchy about this
+	elif [ "${USER}" != "${consoleUser}" -a "$UID" -ne 0 -a "${SUDO_USER}" != "${consoleUser}" ]; then
+		echo "Script user ($USER) ≠ console user ($consoleUser), please run as root on 10.10 and 10.9" >&2
+		return 1
+	fi
+fi
 
 #unset global variables each time function is entered
 unset lastButton lastText lastChoice lastGaveUp
@@ -945,7 +944,7 @@ shui alert -p "Bold Alert Prompt" -P "The critical alert level overlays the appl
 shui alert -p "Specify an application with the -a option" -P "The icon is jazzed up but this will inhibit any other action in the app until dismissed and may require additional PPPC permissions" -b "OK," -d 1 -a "Terminal" -L "critical" -V
 }
 
-function znonBlockingButton_demo {
+function znonBlockingButton-System_Events_demo {
 #timeout
 shui button -a "System Events" -p "Non-blocking window (-n) with give up of 10 seconds, the script proceeds (not blocked) and no values are returned\n\nNote: Give up time will affect subsequent System Events windows if this is still open...\n" -b "Wait for it..." -g 10 -i "caution" -n -V
 echo "Script proceeding, sleeping 5 seconds..."
@@ -963,6 +962,17 @@ shui alert -p "Alerts can be non-Blocking too" -P "They sure can...\n\nIf you sp
 echo "Script proceeding, sleeping 7 seconds..."
 sleep 7
 }
+
+function znonBlockingButton-Anonymous_demo {
+#timeout
+shui button -p "Non-blocking windows (-n) WITHOUT a specified app (-a) will NOT block each other but they will still stack up on top of each other and you can't get results back from them either FYI'\nClick OK to spawn 3 pop-ups" -b "OK" -i "/System/Library/CoreServices/Finder.app" -V
+shui button -n -p "One non-blocking..." -b "OK" -i "stop" -V
+shui button -n -p "Two non-blocking..." -b "OK" -i "caution" -V
+shui button -n -p "Three non-blocking... sleeping 10 seconds" -b "OK" -i "note" -V
+sleep 10
+shui button -p "Click to go back to the main menu" -b "OK" -i "/System/Library/CoreServices/Finder.app" -V
+}
+
 
 function application_demo {
 #timeout
