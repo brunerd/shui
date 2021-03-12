@@ -1,16 +1,20 @@
 #!/bin/zsh
 #!/bin/bash
-#shui - a zsh/bash function to easily add Applescript user interaction to your script
+#shui - a zsh/bash function to easily add Applescript user interaction to your macOS (10.9+) script 
 
-#this script includes demostration code, use it to test syntax out or run the demo function with: "./shui demo"
+#this script includes demonstration code, use it to test syntax out or run the demo function with: "./shui demo"
 #to use in your script: copy and paste ONLY the function shui {...} into your script
 #for reduced line count use shui.min
 
 #hold the Shift key down for xtrace debugging when you run this script
-shiftKeyDown=$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.modifierFlags & $.NSEventModifierFlagShift) > 1")
+shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.modifierFlags & $.NSEventModifierFlagShift) > 1" 2>/dev/null)"
+#false may be because "false" if new NS constants are not recognized (10.11 and below)
+[ "${shiftKeyDown}" = "false" ] && shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.modifierFlags & $.NSShiftKeyMask) > 1" 2>/dev/null)"
+#osascript 10.10 and under cannot handle Javascript yet, fall back to python if unset
+[ -z "${shiftKeyDown}" ] && shiftKeyDown="$(/usr/bin/python -c 'import Cocoa; print Cocoa.NSEvent.modifierFlags() & Cocoa.NSShiftKeyMask > 1')"
 
 #set xtraceFlag if /tmp/debug found or Command key is held down
-[ -f /tmp/debug -o "$shiftKeyDown" = "true" ] && xtraceFlag=1
+[ -f /tmp/debug -o "$shiftKeyDown" = "true" -o "$shiftKeyDown" = "True" ] && xtraceFlag=1
 [ -n "$xtraceFlag" ] && set -x
 
 ############
@@ -21,11 +25,9 @@ shiftKeyDown=$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.modi
 function shui
 {
 : <<-EOL
-shui (20210309) - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
+shui (20210312) - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
-
 MIT License
-
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
@@ -35,11 +37,16 @@ EOL
 ## Conditional Exits #
 ######################
 
-#uncomment to use
+#10.8 and under are a no-go, 10.9+ only
+[ "$(cut -d. -f1 <<< $(sw_vers -productVersion))" -eq 10 -a "$(cut -d. -f2 <<< $(sw_vers -productVersion))" -le 8 ] && echo "shui requires macOS 10.9 and above" >&2 && return 1 
+
+#Note: macOS 10.10 and under must run shui as root due to the behavior of launchctl asuser
+[ "$(cut -d. -f1 <<< $(sw_vers -productVersion))" -eq 10 -a "$(cut -d. -f2 <<< $(sw_vers -productVersion))" -le 10 -a "$UID" -ne 0 ] && echo "shui must be run as root on macOS 10.9 and 10.10" >&2 && return 1 
 
 #if the silentMode or shui_silentMode flag is set to Y return
 [ "${shui_silentMode}" = "Y" -o "${silentMode}" = "Y" ] && return
 
+#uncomment to use these...
 #if Self Service is NOT running, return
 #[ -z "$(pgrep 'Self Service')" ] && return
 
@@ -78,10 +85,10 @@ local defaultColorRGB="${shui_defaultColor:-65535,65535,65535}" #white
 local timeoutSecondsAppleScript=${timeoutDefault:-"133200"}
 
 #get console user UID
-local consoleUserID=$(stat -f %u /dev/console)
+local consoleUserID="$(stat -f %u /dev/console)"
 
 #get console user name
-local consoleUser=$(stat -f %Su /dev/console)
+local consoleUser="$(stat -f %Su /dev/console)"
 
 #a few shell specific settings depending on where this function finds itself
 if [ -n "$ZSH_VERSION" ]; then
@@ -133,7 +140,7 @@ elif [ "$(cut -c1-1 <<< ${1})" = "-" ]; then
 		local uiType="button"
 else
 	#normalize to lower case
-	local uiType=$(tr "[[:upper:]]" "[[:lower:]]" <<< "${1}")
+	local uiType="$(tr "[[:upper:]]" "[[:lower:]]" <<< "${1}")"
 	shift 1
 fi
 
@@ -143,28 +150,28 @@ while getopts ":B:L:t:g:P:p:i:b:c:D:S:d:l:a:nehmNsovVX" option; do
 
 	case "${option}" in
 		'a')local applicationNameArg="${OPTARG}";;
-		'b')local buttonListArgs=$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g');; #escape \ and "
+		'b')local buttonListArgs="$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')";; #escape \ and "
 		'B')local beep_AS="beep ${OPTARG}";;
-		'c')local cancelButton=$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g');; #escape quotes
-		'd')local defaultOption=$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g');;
+		'c')local cancelButton="$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')";; #escape quotes
+		'd')local defaultOption="$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')";;
 		'D')local listDelimiter="${OPTARG}";;
 		'e')local withEmpty_AS="with empty selection allowed";;
 		'g')local giveupSeconds="${OPTARG}";;
 		'h')local option_H_flag="1";;
 		'i')local iconArgument="${OPTARG}";;
 		'L')local alertLevel_AS="as ${OPTARG}";;
-		'l')local listItems=$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g');;
+		'l')local listItems="$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')";;
 		'm')local withMultiple_AS="with multiple selections allowed";;
 		'n')local nonBlockingFlag="1";;
 		'N')local nonBlockingFlag="1";
 			local defaultOption="1";;
 		'o')local outputFlag="1";;
-		'p')local promptString=$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g') #escape quotes
+		'p')local promptString="$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')" #escape quotes
 			local withPrompt_AS="with prompt \"${promptString}\"";;
-		'P')local preFillString=$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g');; #escape quotes
+		'P')local preFillString="$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')";; #escape quotes
 		'S')local serviceArgument="${OPTARG}";;
 		's')local showingPackage_AS="with showing package contents";;
-		't')local titleString=$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g');; #escape quotes
+		't')local titleString="$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')";; #escape quotes
 		'v')local variableFlag="1";;
 		'V')local variableFlag="1"
 			local outputFlag="1"
@@ -181,24 +188,24 @@ fi
 
 #if we have a default application and nothing is specified, use it
 if [ -z "${applicationNameArg}" -a -n "${defaultApplication}" ]; then
-	applicationNameArg="${defaultApplication}"
+	local applicationNameArg="${defaultApplication}"
 fi
 
 #if we have a default icon (and it exists) and nothing is specified for -i, use it
 if [ -z "${iconArgument}" -a -e "${defaultIcon}" ]; then
-	iconArgument="${defaultIcon}"
+	local iconArgument="${defaultIcon}"
 fi
 
 #color seems needs an application, use System Events if not specified
 if [ "${uiType}" = "color" -a -z "$applicationNameArg" ]; then
-	applicationNameArg="System Events"
+	local applicationNameArg="System Events"
 fi
 
 #if we have set an application 
 if [ -n "${applicationNameArg}" ]; then
 	#used to default to "System Events"
-	tellApp_AS="tell application \"${applicationNameArg}\""
-	endTell_AS="end tell"
+	local tellApp_AS="tell application \"${applicationNameArg}\""
+	local endTell_AS="end tell"
 fi
 
 #see what kind of window we need to show and ready buttons and Applescript code
@@ -219,17 +226,17 @@ case "${uiType}" in
 			#if we have 2 or more newlines then we are using newlines for button name delimiters (1 is present in a single string tested with herestring)
 			if [ "$(grep -c $'\n' <<< "${buttonListArgs}")" -ge 2 ]; then
 				#line 1
-				local button_OK=$(sed -n 1p <<< "${buttonListArgs}")
+				local button_OK="$(sed -n 1p <<< "${buttonListArgs}")"
 				#line 2
-				local button_cancel=$(sed -n 2p <<< "${buttonListArgs}")
+				local button_cancel="$(sed -n 2p <<< "${buttonListArgs}")"
 			else
 				#if there is a semi-colon delimit with that otherwise use semi-colon
 				[ "$(grep -c $';' <<< "${buttonListArgs}")" -ge 1 ] && local buttonDelimiter=';' || local buttonDelimiter=',' 
 				
 				#field 1
-				local button_OK=$(cut -d "${buttonDelimiter}" -f1 <<< "${buttonListArgs}")
+				local button_OK="$(cut -d "${buttonDelimiter}" -f1 <<< "${buttonListArgs}")"
 				#field 2
-				local button_cancel=$(cut -d "${buttonDelimiter}" -f2 <<< "${buttonListArgs}")
+				local button_cancel="$(cut -d "${buttonDelimiter}" -f2 <<< "${buttonListArgs}")"
 				#if only one button name is specified then cut will set both to be the same. If so, unset it and it will default to Cancel
 				[ "${button_cancel}" = "${button_OK}" ] && button_cancel=""
 			fi		
@@ -333,12 +340,13 @@ case "${uiType}" in
 		#if this is a home folder relative path then try and resolve it
 		elif [ "${defaultOption:0:1}" = '~' ]; then
 			#sudo has some quirks, this avoids them
-			local homeFolder=$(dscl . -read /Users/$consoleUser NFSHomeDirectory | awk -F ": " '{print $NF}')
+			local homeFolder="$(dscl . -read /Users/$consoleUser NFSHomeDirectory | awk -F ": " '{print $NF}')"
 			local folderPath="${homeFolder}${defaultOption:1}"
-		#ZSH_ARGZERO is equivalent to bash's $0
-		elif [ -e "${ZSH_ARGZERO}" ]; then
-			local folderPath="$(dirname "${ZSH_ARGZERO}")"
-		#in bash this will be the script (in zsh this is the function name)
+		#if zsh...
+		elif [ -n "${ZSH_VERSION}" ]; then
+			#get path to folder containing calling script even for zsh 5.3 and under - http://people.apache.org/~danielsh/zsh/mhonarc-test-20180920001/workers-2018/msg00008.html
+			local folderPath="$(dirname "${ZSH_ARGZERO:=${${funcfiletrace[-1]}[(ws/:/)1]}}")"
+		#in bash $0 is the script path (in some versionss of zsh this is the function name)
 		elif [ -e "${0}" ]; then
 			local folderPath="$(dirname "$0")"
 		#otherwise fall back to the current folder
@@ -428,9 +436,9 @@ case "${uiType}" in
 	"color")
 		#if we have specified a value only use it if it is valid
 		if [ -n "${preFillString}" ] ; then
-			local R=$(cut -d, -f1 <<< "${preFillString}")
-			local G=$(cut -d, -f2 <<< "${preFillString}")
-			local B=$(cut -d, -f3 <<< "${preFillString}")
+			local R="$(cut -d, -f1 <<< "${preFillString}")"
+			local G="$(cut -d, -f2 <<< "${preFillString}")"
+			local B="$(cut -d, -f3 <<< "${preFillString}")"
 			#make sure each RGB value is between 0 and 65535
 			if [ "${R}" -ge 0 -a "${R}" -le 65535 -a "${G}" -ge 0 -a "${G}" -le 65535 -a "${B}" -ge 0 -a "${B}" -le 65535 ]; then		
 				defaultColor_AS="default color {${preFillString}}"
@@ -538,11 +546,11 @@ case "${uiType}" in
 		local button buttonListItems buttonCount
 		for button in ${buttonListArgs}; do
 			#dangling delimiter? Skip it.
-			[ -z "$button" ] && continue
+			[ -z "${button}" ] && continue
 			#trim off leading or trailing spaces
-			button=$(sed "s/^[ ]*//;s/[ ]*$//" <<< "$button" )
+			button="$(sed "s/^[ ]*//;s/[ ]*$//" <<< "${button}" )"
 			#if first entry do not prefix with comma, otherwise put comma in front
-			[ -z "$buttonListItems" ] && buttonListItems=\"${button}\" || buttonListItems+=,\ \"${button}\"
+			[ -z "${buttonListItems}" ] && buttonListItems=\"${button}\" || buttonListItems+=,\ \"${button}\"
 			#increment button Count
 			let $((buttonCount++))
 			#stop if we've reached the limit
@@ -601,8 +609,8 @@ case "${uiType}" in
 				"caution"|"2")
 					#if no app then this is System Event with cannot show a "caution" icon
 					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
-						#alert icon to pass to alertUserConsole
-						local alertIconUnixPath=$(find "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/" -name 'AlertCaution*Icon.icns' | sort -r | head -n 1)
+						#alert icon to pass to alertUserConsole - Big Sur killed the larger version so we use find to get both
+						local alertIconUnixPath="$(find "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/" -name 'AlertCaution*Icon.icns' | sort -r | head -n 1)"
 					#otherwise any other app will overlay their icon over the stop sign
 					else
 						local alertIconName="caution"
@@ -627,7 +635,7 @@ case "${uiType}" in
 						#for cleanup later
 						local tempIcon="/tmp/shuiTemp-${RANDOM}.icns"
 						#hex the ResourceFork as ASCII
-						local resourceHexString=$(xattr -p com.apple.ResourceFork "${iconArgument}/Icon"$'\r') 
+						local resourceHexString="$(xattr -p com.apple.ResourceFork "${iconArgument}/Icon"$'\r')"
 						#remove first 260 bytes (3 ASCII chars) (why? I haven't looked too hard)
 						xxd -r -p - <<< "${resourceHexString:780}" > "${tempIcon}"
 						#as long as the result is NOT "data" attempt to use this as an icon
@@ -636,8 +644,8 @@ case "${uiType}" in
 
 					#if alertIconUnixPath is empty (no Icon^M), see if this is a bundle with an Info.plist and interogate
 					if [ -f "${iconArgument}"/Contents/Info.plist -a -z "${alertIconUnixPath}" ]; then
-						local bundleIconFileName=$(defaults read "${iconArgument}"/Contents/Info.plist CFBundleIconFile)
-						[ -z "${bundleIconFileName}" ] && bundleIconFileName=$(defaults read "${iconArgument}"/Contents/Info.plist CFBundleIconName 2>/dev/null)
+						local bundleIconFileName="$(defaults read "${iconArgument}"/Contents/Info.plist CFBundleIconFile)"
+						[ -z "${bundleIconFileName}" ] && bundleIconFileName="$(defaults read "${iconArgument}"/Contents/Info.plist CFBundleIconName 2>/dev/null)"
 						
 						#append icns if it does not have that as an extension (Apple apps like Finder do not)
 						[ "${bundleIconFileName}" = "${bundleIconFileName/.icns/}" ] && bundleIconFileName="${bundleIconFileName}".icns
@@ -684,7 +692,7 @@ case "${uiType}" in
 		#allow use of relative paths
 		if [ "${iconArgument:0:1}" = '~' ]; then
 			#sudo has some quirks, this avoids them
-			local homeFolder=$(dscl . -read /Users/$consoleUser NFSHomeDirectory | awk -F ": " '{print $NF}')
+			local homeFolder="$(dscl . -read /Users/$consoleUser NFSHomeDirectory | awk -F ": " '{print $NF}')"
 			local iconArgument="${homeFolder}${iconArgument:1}"
 		fi
 		
@@ -760,7 +768,7 @@ fi
 #execute the applescript and capture the result
 #todo: need to capture the stderr output also...
 if [ -z "${nonBlockingFlag}" ]; then		
-	osaresult=$(eval ${asuserPrefix} /usr/bin/osascript 2>/dev/null <<< "$APPLESCRIPT")
+	local osaresult="$(eval ${asuserPrefix} /usr/bin/osascript 2>/dev/null <<< "$APPLESCRIPT")"
 #if running in the background just eval without capturing output
 else
 	( eval ${asuserPrefix} /usr/bin/osascript &>/dev/null <<< "$APPLESCRIPT"; [ -e "${tempIcon}" ] && rm -f "${tempIcon}" ) &
@@ -775,20 +783,20 @@ case "${uiType}" in
 		if grep -q "text returned:" <<< "${osaresult}"; then
 		#sample osaresult='button returned:OK, text returned:myTest, is here, gave up:false'
 			#use | or operator with -F field to buttress your matches, using only , was not robust enough
-			lastText=$(awk -F 'text returned:|, gave up:' '{print $2}' <<< ${osaresult})
+			lastText="$(awk -F 'text returned:|, gave up:' '{print $2}' <<< ${osaresult})"
 
 			#use | or operator with -F field to buttress your matches, before was using , but this was not robust for buttons
-			lastButton=$(awk -F 'button returned:|, text returned:' '{print $2}' <<< ${osaresult})
+			lastButton="$(awk -F 'button returned:|, text returned:' '{print $2}' <<< ${osaresult})"
 		#no 'text returned'
 		else
 		#sample osaresult='button returned:Exit, gave up:false'
 		
 			#use | or operator with -F field to buttress your matches, using "," is not robust for buttons
-			lastButton=$(awk -F 'button returned:|, gave up:' '{print $2}' <<< ${osaresult})
+			lastButton="$(awk -F 'button returned:|, gave up:' '{print $2}' <<< ${osaresult})"
 		fi
 
 		#should be nothing after this
-		lastGaveUp=$(awk -F 'gave up:' '{print $2}' <<< ${osaresult})
+		lastGaveUp="$(awk -F 'gave up:' '{print $2}' <<< ${osaresult})"
 
 		#we can handle a button named "Exit" if desired
 		#[ "$lastButton" = "Exit" ] && exit 0
@@ -821,29 +829,29 @@ fi
 ##########################################################################################
 
 function button_demo {
-	shui button -p "Specify icons by specific file, the .app bundle or with keywords \"stop\", \"caution\", and \"note\"\nDefault buttons can be specified by name or number..." -b "OK,Cool,Cancel" -d "Cool" -t "Your Title Here" -i "/System/Library/CoreServices/Finder.app" -V
+shui button -p "Specify icons by specific file, the .app bundle or with keywords \"stop\", \"caution\", and \"note\"\nDefault buttons can be specified by name or number..." -b "OK,Cool,Cancel" -d "Cool" -t "Your Title Here" -i "/System/Library/CoreServices/Finder.app" -V
 
-	shui button -p "You can specify a cancel button by name (Skip) or number (3)\nCancel will return no button results when clicked " -b "This,That,Skip" -d 1 -c 3 -i "caution" -V
+shui button -p "You can specify a cancel button by name (Skip) or number (3)\nCancel will return no button results when clicked " -b "This,That,Skip" -d 1 -c 3 -i "caution" -V
 
-	shui button -p "Specifying a give up time (-g) makes a nice pop-up that alerts but moves on after a while..." -g "10" -b "OK" -d 1 -t "Title" -i "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Clock.icns" -V
+shui button -p "Specifying a give up time (-g) makes a nice pop-up that alerts but moves on after a while..." -g "10" -b "OK" -d 1 -t "Title" -i "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Clock.icns" -V
 
-	multiLineText="You can put lots of text in a window
+multiLineText="You can put lots of text in a window
 
-	• For a list of things to tell a user
-	• Please Make sure you realize...
-		° This
-		° That
-		° The other
+• For a list of things to tell a user
+• Please Make sure you realize...
+	° This
+	° That
+	° The other
 
-	\"Cool\", right?"
+\"Cool\", right?"
 
-	#you can use mutliline variables to neatly compose your invocation
-	shui button -p "${multiLineText}" -b "Yes,No,Maybe" -t "Greetings" -i "caution" -d "Yes" -V
+#you can use mutliline variables to neatly compose your invocation
+shui button -p "${multiLineText}" -b "Yes,No,Maybe" -t "Greetings" -i "caution" -d "Yes" -V
 }
 
 #unencode emoji work just fine also (just not on Jamf)
 function 1emoji_demo {
-	multiLineText="shui works with Unicode™ and Emoji 
+multiLineText="shui works with Unicode™ and Emoji 
 
 \0342\0234\0205 Dialogs, buttons, pre-fills, etc...
 
@@ -858,192 +866,194 @@ UTF-8 \\\\0nnn Octal encoding:
 Unicode characters can be encoded using jpt the JSON Power Tool: https://github.com/brunerd/jpt
 "
 
-	#you can use mutliline variables to neatly compose your invocation
-	shui button -p "${multiLineText}" -b "\0360\0237\0237\0242 Yes,\xf0\x9f\x9b\x91 No,\0342\0232\0240\0357\0270\0217Maybe" -t "\xf0\x9f\x93\xa3 Greetings \xf0\x9f\x94\x8a" -i "caution" -d "\xf0\x9f\x9f\xa2 Yes" -V
+#you can use mutliline variables to neatly compose your invocation
+shui button -p "${multiLineText}" -b "\0360\0237\0237\0242 Yes,\xf0\x9f\x9b\x91 No,\0342\0232\0240\0357\0270\0217Maybe" -t "\xf0\x9f\x93\xa3 Greetings \xf0\x9f\x94\x8a" -i "caution" -d "\xf0\x9f\x9f\xa2 Yes" -V
 }
 
 function text_demo {
-	shui text -p "Hidden Input with Pre-Filled answer...\nSpecifying an app brings focus and icon keywords will badge the app icon" -h -P "secr3t" -t "Password Prompt" -i "stop" -b "Submit,Cancel" -d 1 -V -a Terminal
+shui text -p "Hidden Input with Pre-Filled answer...\nSpecifying an app brings focus and icon keywords will badge the app icon" -h -P "secr3t" -t "Password Prompt" -i "stop" -b "Submit,Cancel" -d 1 -V -a Terminal
 
-	#buttons named cancel are treated special and do not return a button name or anything but our function will return a gave up as false to help
-	shui text -p "Question for you, 15 seconds though!\nNote: It will return the pre-fill after timeout, lastGaveUp will be true" -P "Pre-Filled Answer" -t "Title" -i "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Actions.icns" -b "Send,Save,Trash" -d 1 -c 3 -g 15 -V
+#buttons named cancel are treated special and do not return a button name or anything but our function will return a gave up as false to help
+shui text -p "Question for you, 15 seconds though!\nNote: It will return the pre-fill after timeout, lastGaveUp will be true" -P "Pre-Filled Answer" -t "Title" -i "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Actions.icns" -b "Send,Save,Trash" -d 1 -c 3 -g 15 -V
 
-	#buttons named cancel are treated special and do not return a button name or anything but our function will return a gave up as false to help
-	shui text -p "You can put commas in buttons if you delimit with newlines\nLack of default button ensures accidentally hitting Return does not move on..." -i "note" -t "Title" -b "OK, Boomer"$'\n'"Cancel" -V
+#buttons named cancel are treated special and do not return a button name or anything but our function will return a gave up as false to help
+shui text -p "You can put commas in buttons if you delimit with newlines\nLack of default button ensures accidentally hitting Return does not move on..." -i "note" -t "Title" -b "OK, Boomer"$'\n'"Cancel" -V
 }
 
 function list_demo {
-	#first button name is for "OK" button, the second if for the cancel button
-	shui list -p "Choose One, custom buttons" -l "This,That,Other" -t "Title"  -b 'Remove,Skip' -P "Other" -V
+#first button name is for "OK" button, the second if for the cancel button
+shui list -p "Choose One, custom buttons" -l "This,That,Other" -t "Title"  -b 'Remove,Skip' -P "Other" -V
 
-	#while the list choice demiliters default to comma, you can specify a custom delimiter like LF if you need to used commas
-	local bunchaChoices="This has commas, neato!
-	This one too, wow"
-	shui list -p "Items have commas by using custom delimiter, buttons can include commas if newlines used" -l "$bunchaChoices" -t "Title" -b 'Remove, Please'$'\n''Ignore' -D $'\n' -P "This one too, wow" -V
+#while the list choice demiliters default to comma, you can specify a custom delimiter like LF if you need to used commas
+local bunchaChoices="This has commas, neato!
+This one too, wow"
+shui list -p "Items have commas by using custom delimiter, buttons can include commas if newlines used" -l "$bunchaChoices" -t "Title" -b 'Remove, Please'$'\n''Ignore' -D $'\n' -P "This one too, wow" -V
 
-	#while the list choice demiliters default to comma, you can specify a custom delimiter like space if you want
-	local bunchaChoices="true false truthy"
-	shui list -p "Choose One or none from space delimited list with custom delimiter" -l "$bunchaChoices" -t "Custom Title" -b 'Pick,Pass' -D " " -e -V
+#while the list choice demiliters default to comma, you can specify a custom delimiter like space if you want
+local bunchaChoices="true false truthy"
+shui list -p "Choose One or none from space delimited list with custom delimiter" -l "$bunchaChoices" -t "Custom Title" -b 'Pick,Pass' -D " " -e -V
 
-	#a single button name will be used for the "OK" button
-	shui list -p "Choose One or More (Custom Buttons) with Shift or Command clicking" -m -l "Eenie,Meanie,Minie,Moe" -t "Title" -b 'Choose' -P "Eenie,Moe" -V
+#a single button name will be used for the "OK" button
+shui list -p "Choose One or More (Custom Buttons) with Shift or Command clicking" -m -l "Eenie,Meanie,Minie,Moe" -t "Title" -b 'Choose' -P "Eenie,Moe" -V
 
-	#buttons default to "OK, Cancel"
-	shui list -p "Choose One or More with Shift or Command clicking" -m -l "This,That,Other" -t "Title" -V
+#buttons default to "OK, Cancel"
+shui list -p "Choose One or More with Shift or Command clicking" -m -l "This,That,Other" -t "Title" -V
 
-	#allowing commas in a list mean changing the delimiter to $'\n' from ,
-	local bunchaChoices="This has commas, neato!
-	This one too, wow
-	I will forget Applescript after using this"
-	shui list -p "Choose One or More (Custom buttons) with Shift or Command clicking" -m -l "$bunchaChoices" -t "Title" -b 'Yep,Nope' -D $'\n' -V
+#allowing commas in a list mean changing the delimiter to $'\n' from ,
+local bunchaChoices="This has commas, neato!
+This one too, wow
+I will forget Applescript after using this"
+shui list -p "Choose One or More (Custom buttons) with Shift or Command clicking" -m -l "$bunchaChoices" -t "Title" -b 'Yep,Nope' -D $'\n' -V
 }
 
 function file_demo {
-	#pick a file or folder, defaults to where the script is running
-	shui file -p "Pick a file inside an app or package bundle" -d '/System/Library/CoreServices' -s -V
+#pick a file or folder, defaults to where the script is running
+shui file -p "Pick a file inside an app or package bundle" -d '/System/Library/CoreServices' -s -V
 
-	#pick a file or folder, defaults to where the script is running
-	shui file -p "Pick a hidden file..." -h -d '~' -V
+#pick a file or folder, defaults to where the script is running
+shui file -p "Pick a hidden file..." -h -d '~' -V
 
-	#pick a file or folder, defaults to where the script is running
-	shui file  -p "Pick multiple files using Shift and Command keys..." -m -V
+#pick a file or folder, defaults to where the script is running
+shui file  -p "Pick multiple files using Shift and Command keys..." -m -V
 
-	#specify allowed mixed UTI file extensions (-f) and a default folder to look with (-d)
-	shui file -p "Pick a public.image or txt file only" -m -P 'public.image,txt' -d '~/Pictures' -V
+#specify allowed mixed UTI file extensions (-f) and a default folder to look with (-d)
+shui file -p "Pick a public.image or txt file only" -m -P 'public.image,txt' -d '~/Pictures' -V
 
-	#specify an allowed file extension (-f) and a folder to look with (-t)
-	shui file -p "Pick a .log or .out files only" -m -P 'log,out' -d "/var/log" -V
+#specify an allowed file extension (-f) and a folder to look with (-t)
+shui file -p "Pick a .log or .out files only" -m -P 'log,out' -d "/var/log" -V
 }
 
 function folder_demo {
-	#pick multiple folders, will resolve ~ relative paths for the console user
-	shui folder -p "Pick some folders from your Desktop..." -m -d '~/Desktop' -V
+#pick multiple folders, will resolve ~ relative paths for the console user
+shui folder -p "Pick some folders from your Desktop..." -m -d '~/Desktop' -V
 
-	#specify an a default directory to look in with -d and inside
-	shui folder -p "Pick a folder inside an Application" -s -d "/Applications" -V
+#specify an a default directory to look in with -d and inside
+shui folder -p "Pick a folder inside an Application" -s -d "/Applications" -V
 
-	#pick a file or folder, defaults to where the script is running
-	shui folder -p "Pick a folder, origin of current script if not specified..." -h -V
+#pick a file or folder, defaults to where the script is running
+shui folder -p "Pick a folder, origin of current script if not specified..." -h -V
 
-	#specify a default directory to look in with -d 
-	shui folder -p "Pick folders starting at root" -m -d "/" -V
+#specify a default directory to look in with -d 
+shui folder -p "Pick folders starting at root" -m -d "/" -V
 }
 
 function alert_demo {
-	shui alert -p "Alert Prompt" -P "Alerts do not have titles, the prompt text will be bolder though\nThe icon will be the application specified with -a or a folder if no application is specified\nThis is an info/warning level alert (default)..." -b "OK" -d 1 -V
+shui alert -p "Alert Prompt" -P "Alerts do not have titles, the prompt text will be bolder though\nThe icon will be the application specified with -a or a folder if no application is specified\nThis is an info/warning level alert (default)..." -b "OK" -d 1 -V
 
-	shui alert -p "Bold Alert Prompt" -P "The critical alert level overlays the application icon with a caution sign" -b "This,That,Cancel" -d 1 -c 3 -L "critical" -V
+shui alert -p "Bold Alert Prompt" -P "The critical alert level overlays the application icon with a caution sign" -b "This,That,Cancel" -d 1 -c 3 -L "critical" -V
 
-	shui alert -p "Specify an application with the -a option" -P "The icon is jazzed up but this will inhibit any other action in the app until dismissed and may require additional PPPC permissions" -b "OK," -d 1 -a "Terminal" -L "critical" -V
+shui alert -p "Specify an application with the -a option" -P "The icon is jazzed up but this will inhibit any other action in the app until dismissed and may require additional PPPC permissions" -b "OK," -d 1 -a "Terminal" -L "critical" -V
 }
 
 function znonBlockingButton_demo {
-	#timeout
-	shui button -a "System Events" -p "Non-blocking window (-n) with give up of 10 seconds, the script proceeds (not blocked) and no values are returned\n\nNote: Give up time will affect subsequent System Events windows if this is still open...\n" -b "Wait for it..." -g 10 -i "caution" -n -V
-	echo "Script proceeding, sleeping 5 seconds..."
-	sleep 5
-	shui button -a "System Events" -p "Like this one...\nThis one will get the time out from the previous window, so only specify -a \"System events\" if you want to be able to kill the non-blocking window later..." -b "Uh oh" -g 10 -i "caution" -V
-	echo "Script proceeding, sleeping 5 seconds..."
-	sleep 5
-	shui button -a "System Events" -p "This window is now covering a window that is stuck... and this has a give up of 1 hour BUT it can be killed along with all other System Events based windows with -X\n\nWait for it... (10 seconds)" -b "Wait for it..." -g 3600 -i "stop" -d 1 -n -V
-	echo "Script proceeding, sleeping 10 seconds..."
-	sleep 10
-	shui button -p 'BOOM!\nPrevious windows with System Events as the application can be cleared with -X\n' -X -b "OK" -V -N -i "/System/Library/CoreServices/Finder.app"
-	echo "Script proceeding, sleeping 5 seconds..."
-	sleep 5
-	shui alert -p "Alerts can be non-Blocking too" -P "They sure can...\n\nIf you specify any other app besides System Events with -a they cannot be killed with -X" -N  -L "critical" -B 1 -X
-	echo "Script proceeding, sleeping 7 seconds..."
-	sleep 7
+#timeout
+shui button -a "System Events" -p "Non-blocking window (-n) with give up of 10 seconds, the script proceeds (not blocked) and no values are returned\n\nNote: Give up time will affect subsequent System Events windows if this is still open...\n" -b "Wait for it..." -g 10 -i "caution" -n -V
+echo "Script proceeding, sleeping 5 seconds..."
+sleep 5
+shui button -a "System Events" -p "Like this one...\nThis one will get the time out from the previous window, so only specify -a \"System events\" if you want to be able to kill the non-blocking window later..." -b "Uh oh" -g 10 -i "caution" -V
+echo "Script proceeding, sleeping 5 seconds..."
+sleep 5
+shui button -a "System Events" -p "This window is now covering a window that is stuck... and this has a give up of 1 hour BUT it can be killed along with all other System Events based windows with -X\n\nWait for it... (10 seconds)" -b "Wait for it..." -g 3600 -i "stop" -d 1 -n -V
+echo "Script proceeding, sleeping 10 seconds..."
+sleep 10
+shui button -p 'BOOM!\nPrevious windows with System Events as the application can be cleared with -X\n' -X -b "OK" -V -N -i "/System/Library/CoreServices/Finder.app"
+echo "Script proceeding, sleeping 5 seconds..."
+sleep 5
+shui alert -p "Alerts can be non-Blocking too" -P "They sure can...\n\nIf you specify any other app besides System Events with -a they cannot be killed with -X" -N  -L "critical" -B 1 -X
+echo "Script proceeding, sleeping 7 seconds..."
+sleep 7
 }
 
 function application_demo {
-	#timeout
-	shui application -p "Pick one application..." -t "App Picker" -V
+#timeout
+shui application -p "Pick one application..." -t "App Picker" -V
 
-	#timeout
-	shui application -p "Pick one or more applications using the Shift and Command keys..." -m -t "Multi-App Picker" -V
+#timeout
+shui application -p "Pick one or more applications using the Shift and Command keys..." -m -t "Multi-App Picker" -V
 }
 
 function url_demo {
-	#URL defaults to "file" servers if no service specified (-S)
-	shui url -V
+#URL defaults to "file" servers if no service specified (-S)
+shui url -V
 
-	#URL with service specified
-	shui url -S "web" -V
+#URL with service specified
+shui url -S "web" -V
 }
 
 function color_demo {
-	shui color -V
+shui color -V
 
-	shui color -P "12000,30000,45000" -V
+shui color -P "12000,30000,45000" -V
 }
 
 function filename_demo {
-	#pick a file or folder, defaults to where the script is running
-	shui filename -p "Pick a file name to Save As..." -d '~/Desktop' -P "PrePopulated_Name-$RANDOM.txt" -V
+#pick a file or folder, defaults to where the script is running
+shui filename -p "Pick a file name to Save As..." -d '~/Desktop' -P "PrePopulated_Name-$RANDOM.txt" -V
 }
 
 function Q_and_A_demo {
-	shui text -p 'Hi! What is your name?' -d "OK" -t "shui demo" -V
-	local myName="${lastText:-Unknown}"
+shui text -p 'Hi! What is your name?' -d "OK" -t "shui demo" -V
+local myName="${lastText:-Unknown}"
 
-	shui button -p "Good to meet you ${myName}, which do you prefer?" -b "Day,Night,Both" -V
-	local timeOfDayPref="${lastButton}"
+shui button -p "Good to meet you ${myName}, which do you prefer?" -b "Day,Night,Both" -V
+local timeOfDayPref="${lastButton}"
 
-	shui list -p "Are any of these are your favorite fruits?" -l "Apples,Bananas,Blueberries,Kiwi Fruit,Jack Fruit,Durian,Sugar Cane" -m -V -e
-	local myFruitsRAW="${lastChoice}"
-	#count the lines, ensure line is not empty as the wc -l method always return 1 or greater, otherwise it is zero
-	[ -n "${myFruitsRAW}" ] && local myFruitsLines=$(wc -l <<< "$(sed -e '/^$/d' <<< "$myFruitsRAW")" | sed -e 's/^[ ]*//g') || local myFruitsRAW=0
+shui list -p "Are any of these are your favorite fruits?" -l "Apples,Bananas,Blueberries,Kiwi Fruit,Jack Fruit,Durian,Sugar Cane" -m -V -e
+local myFruitsRAW="${lastChoice}"
+#count the lines, ensure line is not empty as the wc -l method always return 1 or greater, otherwise it is zero
+[ -n "${myFruitsRAW}" ] && local myFruitsLines="$(wc -l <<< "$(sed -e '/^$/d' <<< "$myFruitsRAW")" | sed -e 's/^[ ]*//g')" || local myFruitsRAW=0
 
-	if [ "${myFruitsLines}" -eq 0  ]; then
-		s=""
-		isare="is"
-		myFruits="None"
-	elif [ "${myFruitsLines}" -eq 1  ]; then
-		s=""
-		isare="is"
-		myFruits="${myFruitsRAW}"
-	else
-		s="s"
-		isare="are"
-		myFruits=$(sed -e :a -e N -e '$!ba' -e 's/\n/, /g'<<< "${myFruitsRAW}")
-	fi
+if [ "${myFruitsLines}" -eq 0  ]; then
+	s=""
+	isare="is"
+	myFruits="None"
+elif [ "${myFruitsLines}" -eq 1  ]; then
+	s=""
+	isare="is"
+	myFruits="${myFruitsRAW}"
+else
+	s="s"
+	isare="are"
+	myFruits="$(sed -e :a -e N -e '$!ba' -e 's/\n/, /g'<<< "${myFruitsRAW}")"
+fi
 
-	shui alert -p "Here are my findings, $myName" -P "Your preference of day or night is: $timeOfDayPref
-	Your favorite fruit${s} ${isare}: ${myFruits}" -b "OK" -d 1
+shui alert -p "Here are my findings, $myName" -P "Your preference of day or night is: $timeOfDayPref
+Your favorite fruit${s} ${isare}: ${myFruits}" -b "OK" -d 1
 }
 
 function testMenu {
-	#path to this script in zsh
-	if [ -e "${ZSH_ARGZERO}" ]; then
-		local myPath="${ZSH_ARGZERO}"
-	#in bash this will be the script (in zsh this is the function name)
-	elif [ -e "${0}" ]; then
-		local myPath="$0"
-	fi
+#if this is zsh proceed (substitution style is zsh only)
+if [ -n "${ZSH_NAME}" ]; then
+	#http://people.apache.org/~danielsh/zsh/mhonarc-test-20180920001/workers-2018/msg00008.html
+	#get path to self even for zsh 5.3 and under
+	local myPath="${ZSH_ARGZERO:=${${funcfiletrace[-1]}[(ws/:/)1]}}"
+#in bash this will be the script (in zsh this is the function name)
+elif [ -e "${0}" ]; then
+	local myPath="$0"
+fi
 
-	#build our list
-	testFunctionsList=$(grep ^function "${myPath}" | grep _demo | awk '{print $2}' | sort -df)
-	while :; do
-		shui list -D "LF" -l "${testFunctionsList}" -b "Run,Exit" -p "Pick one or more test functions to run..." -t "shui" -m -X
-		#if it's empty quit otherwise invoke the function
-		if [ -z "${lastChoice}" ]; then
-			exit
-		else
-			for function in ${lastChoice}; do
-				"$function"
-			done
-		fi
-	done
+#build our list
+testFunctionsList="$(grep ^function "${myPath}" | grep "_demo" | awk '{print $2}' | sort -df)"
+while :; do
+	shui list -D "LF" -l "${testFunctionsList}" -b "Run,Exit" -p "Pick one or more test functions to run..." -t "shui" -m -X
+	#if it's empty quit otherwise invoke the function
+	if [ -z "${lastChoice}" ]; then
+		exit
+	else
+		for function in ${lastChoice}; do
+			"$function"
+		done
+	fi
+done
 }
 
 function defaults_demo {
-	#we can use these global vars to set defaults (or hardcode them in the function)
-	shui_defaultOption="That"
-	shui_defaultTitle="Default Title"
-	shui_defaultIcon="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Clock.icns"
+#we can use these global vars to set defaults (or hardcode them in the function)
+shui_defaultOption="That"
+shui_defaultTitle="Default Title"
+shui_defaultIcon="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Clock.icns"
 
-	shui button -p "Specifying a default button, title, and icon via global variables..." -b "This,That,Other" -V
+shui button -p "Specifying a default button, title, and icon via global variables..." -b "This,That,Other" -V
 }
 
 ########
