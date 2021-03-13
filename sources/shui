@@ -25,7 +25,7 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 function shui
 {
 : <<-EOL
-shui (20210312) - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
+shui (20210313) - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
 MIT License
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -42,13 +42,6 @@ EOL
 
 #if the silentMode or shui_silentMode flag is set to Y return
 [ "${shui_silentMode}" = "Y" -o "${silentMode}" = "Y" ] && return
-
-#uncomment to use these...
-#if Self Service is NOT running, return
-#[ -z "$(pgrep 'Self Service')" ] && return
-
-#if jamfHelper is running, return
-#[ -n "$(pgrep 'jamfHelper')" ] && return
 
 ##############
 ## VARIABLES #
@@ -606,10 +599,15 @@ case "${uiType}" in
 					
 				;;
 				"caution"|"2")
-					#if no app then this is System Event with cannot show a "caution" icon
+					#if no app of System Events show a plain unbadged "caution" icon
 					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
-						#alert icon to pass to alertUserConsole - Big Sur killed the larger version so we use find to get both
-						local alertIconUnixPath="$(find "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/" -name 'AlertCaution*Icon.icns' | sort -r | head -n 1)"
+						
+						#I tried with AlertCautionBadgeIcon.icns on 11+ but it is too small to be taken seriously
+						#local alertIconUnixPath="$(find "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/" -name 'AlertCaution*Icon.icns' | sort -r | head -n 1)"
+						local alertIconUnixPath="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertCautionIcon.icns"
+						#RIP AlertCautionIcon.icns it moved into /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Assets.car
+						#Problem Reporter.app has something similar if AlertCautionIcon.icns is gone
+						[ ! -f "${alertIconUnixPath}" ] && alertIconUnixPath="/System/Library/CoreServices/Problem Reporter.app/Contents/Resources/ProblemReporter.icns"
 					#otherwise any other app will overlay their icon over the stop sign
 					else
 						local alertIconName="caution"
