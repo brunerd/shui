@@ -1,14 +1,16 @@
 # shui
-shui is a shell script wrapper for presenting user dialogs in Applescript without needing to know Applescript
+shui is a shell script function for presenting user dialogs in Applescript without needing to know Applescript
 
-Download shui from the sources folder and if need be make executable with `chmod ugo+x ./shui` while in the same folder.
+You can download shui from the sources folder and if need be make executable with `chmod ugo+x ./shui` while in the same folder.
+A package installer is also provided in Releases to install the source files to `/usr/local/shui` and a create symlink at `/usr/local/bin/shui`
 
-To get help: `./shui help`  
-To see a demo of all the actions: `./shui demo`
+To get help: `shui help`  
+To see a demo of all the actions: `shui demo`  
 
 * shui allows you to present first class macOS interfaces from your shell scripts with no other external dependencies
-* shui can be embedded and invoked by your shell scripts
-* shui can also output the Applescript you need to invoke via `osascript` in your own scripts (use the `-o` or `-V` option)
+* shui.min can be unobtrusively embedded in your shell scripts, it is only 4 dozen lines long
+* shui can also be invoked exernally, the `-v` option will print the four shell variables to be captured and `eval`'d: `lastButton`, `lastText`, `lastChoice`, `lastGaveUp`
+* shui can also output the Applescript invoked by `osascript` use the `-o` or `-V` option (see the demo)
 * shui can be pronounced however you like, such as: "schway" or "shoe-eee", it is a contraction of shell + gui
 
 ## shui demo video
