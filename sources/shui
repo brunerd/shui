@@ -1,10 +1,9 @@
 #!/bin/zsh
 #!/bin/bash
-#shui - a zsh/bash function to easily add Applescript user interaction to your macOS (10.9+) script 
+#shui - a zsh/bash function to add Applescript user interaction to your macOS (10.9+) script 
 
-#this script includes demonstration code, use it to test syntax out or run the demo function with: "./shui demo"
-#to use in your script: copy and paste ONLY the function shui {...} into your script
-#for reduced line count use shui.min
+#this script includes demonstration code, use it to test syntax out or run the demo function with: "./shui demo", for help see "./shui help"
+#to use in your script: copy and paste ONLY the function shui {...} into your script, for reduced line count use shui.min
 
 #hold the Shift key down for xtrace debugging when you run this script
 shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.modifierFlags & $.NSEventModifierFlagShift) > 1" 2>/dev/null)"
@@ -22,10 +21,9 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 ############
 
 ## BEGIN SHUI FUNCTION ##
-function shui
-{
+function shui {
 : <<-EOL
-shui (20210313) - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
+shui (20210315) - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
 MIT License
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -46,6 +44,9 @@ EOL
 ##############
 ## VARIABLES #
 ##############
+
+#we unset these GLOBAL variables each time the function is entered (use -v to have them output to stdout)
+unset lastButton lastText lastChoice lastGaveUp lastCancel lastError lastResult
 
 ## Use global var or overwrite with hard coded values
 #Unix path or App Bundle accepted (if they contsain icns, RIP in Big Sur)
@@ -108,14 +109,11 @@ if [ "$(cut -d. -f1 <<< $(sw_vers -productVersion))" -eq 10 -a "$(cut -d. -f2 <<
 	fi
 fi
 
-#unset global variables each time function is entered
-unset lastButton lastText lastChoice lastGaveUp
-
 #used to store the Applescript
 local APPLESCRIPT 
 
 read -r -d '' helpText <<'EOT'
-shui - add Applescript user interaction to your shell script (https://github.com/brunerd/shui)\n\nUsage:\nshui [<UI Type>] -p "<prompt text>" \n\nUI Types:\nalert: alert with icon of the calling appication (use -a), prompt (-p) is bold, message text (-P) is smaller, can set level (-L) to critical\napplication: presents list of Launch Services registered applicatins can specify -m for multiple\nbutton (default): button based reply, use -b to change button names (max 3), defaults to "Cancel,OK" like Applescript does\ncolor: no options, presents color picker and returns "R,G,B" with individual values (0-65535)\nfile: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions or UTIs, -h hidden items, -s show bundle contents\nfolder: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions, -h hidden items, -s show bundle contents\nlist: pick one or mutiple (-m) items from a list of choices, use -D for custom delimiter (comma default)\ntext: like button but with a single line text entry box, set pre-filled text with -P, hidden text with -h\nurl: returns a URL, default is file servers, use -S to set the kind of server to look for, valid value listed below\n\nRequired:\n-p "prompt text"\talert/button/file/folder/list: the text prompt presented to the user, required for all type (except color)\n\nOptions (begins with UI type(s) which apply or "all"):\n\n-a "<application>"\tall (except filename): specify the application that will present the Applescript dialog, alert will have app icon and block app\n\n-b "<button>;...;..."\tbutton: max 3 button names, comma or semi-colon delimited (if commas AND semi-colons are present, semis "win") \n\t\t\t\t\t\tif no buttons specified it defaults to the standard Applescript "Cancel,OK"\n-b "<OK>,[<Cancel>]"\tlist: max 2 button names, comma delimited, first is the OK button name, second is Cancel button name (optional)\n\n-B "n"\t\t\tall: beep n number of times\n\n-c "name/number"\tbutton: specify the cancel button by name or number\n\n-d "name/number"\tbutton: default button name or number (0 will suppress Applescript OK button default if -b not specified)\n-d "<Folder Path>"\tfile/folder: default location (Unix Path), using ~ will resolve to the console user's home folder\n\n-D "<delimiter>"\tlist: Delimiter for -l list items, can specify literal character like $'\\n' or use these two named shortcuts "LF" "IFS"\n\n-e \t\t\tlist: allow empty selection\n\n-g "seconds"\t\talert/button: give-up timeout in seconds (dismisses windows and moves on)\n\n-h\t\t\ttext: hidden text entry (dots)\n-h\t\t\tfile/folder: show hidden files in picker\n\n-i "<path>"\t\tbutton: path to icon file or application bundle (Icon^M first, then Info.plist)\n\n-l "item,item,..."\tlist: items for list, comma delimited is default unless newline is detected (change delimiter with -D)\n\n-L "<level>"\t\talert: default is ‌"informational"/"‌warning" (same), "critical" adds a caution sign over the calling app (-a) icon\n\n-m\t\t\tapplication/file/folder/list: allow multiple selections\n\n-n\t\t\talert/button: non-Blocking window, spawns to a background and moves on, response is not captured, one button maximum\n \t\t\tNote: If this is NOT the last alert window it is advisable to use a giveup (-g) value, additional dialogs will occlude previous ones (use -X to clear)\n\n-N\t\t\talert/button: same as (-n) non-blocking window except button 1 is default\n\n-o\t\t\tall: output Applescript code\n\n-P "message text"\talert: "parenthetical" message text below the bold prompt text\n-P "<R>,<G>,<B>"\tcolor: pre-chosen RGB color values 0-65536\n-P "filename"\t\tfilename: pre-filled file name (default folder set with -d)\n-P "extension,UTI,..."\tfile: "preferred" file extensions/UTIs available to choose in picker\n-P "item,item..."\tlist: pre-chosen items, default delimiter is comma unless a newline is present or can be set with -D\n-P "pre-fill text"\ttext: pre-filled text (may be hidden with -h)\n\n-S "<Service>"\t\turl: look for specific services, useful values are: "file" (default) and "web" \n\t\t\tLess useful but still valid values are: "ftp", "media", "telnet", "news", and "remote" (applications)\n\n-s\t\t\tfile/folder: show package/bundle contents (as a folder basically)\n\n-t "Title text"\t\tbutton/list/text: window title (can be hardcoded)\n\n-v\t\t\tall: output results in format suitable for initializing shell variables\n-V\t\t\tall: output results in format suitable for initializing shell variables plus Applescrtipt and raw returned "osascript" value\n\n-X\t\t\talert/button: kill any "System Events" based windows (-a specified), useful for non-Blocking without give up\n\nshui sets four GLOBAL variables within the script's running context:\n\tlastButton - value of button from button, text, and list replies\n\tlastText - Text string from text reply\n\tlastChoice - File or Folder Unix path from files/filename/folders\n\tlastGaveUp - true or false. Only used with button and text reply type if a give up value is specified\n\n
+shui - add Applescript user interaction to your shell script (https://github.com/brunerd/shui)\n\nUsage:\nshui [<UI Type>] -p "<prompt text>" \n\nUI Types:\nalert: alert with icon of the calling appication (use -a), prompt (-p) is bold, message text (-P) is smaller, can set level (-L) to critical\napplication: presents list of Launch Services registered applicatins can specify -m for multiple\nbutton (default): button based reply, use -b to change button names (max 3), defaults to "Cancel,OK" like Applescript does\ncolor: no options, presents color picker and returns "R,G,B" with individual values (0-65535)\nfile: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions or UTIs, -h hidden items, -s show bundle contents\nfolder: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions, -h hidden items, -s show bundle contents\nlist: pick one or mutiple (-m) items from a list of choices, use -D for custom delimiter (comma default)\ntext: like button but with a single line text entry box, set pre-filled text with -P, hidden text with -h\nurl: returns a URL, default is file servers, use -S to set the kind of server to look for, valid value listed below\n\nRequired:\n-p "prompt text"\talert/button/file/folder/list: the text prompt presented to the user, required for all type (except color)\n\nOptions (begins with UI type(s) which apply or "all"):\n\n-a "<application>"\tall (except filename): specify the application that will present the Applescript dialog, alert will have app icon and block app\n\n-b "<button>;...;..."\tbutton: max 3 button names, comma or semi-colon delimited (if commas AND semi-colons are present, semis "win") \n\t\t\t\t\t\tif no buttons specified it defaults to the standard Applescript "Cancel,OK"\n-b "<OK>,[<Cancel>]"\tlist: max 2 button names, comma delimited, first is the OK button name, second is Cancel button name (optional)\n\n-B "n"\t\t\tall: beep n number of times\n\n-c "name/number"\tbutton: specify the cancel button by name or number (use with alert and buttons named "Cancel")\n\n-d "name/number"\tbutton: default button name or number (0 will suppress Applescript OK button default if -b not specified)\n-d "<Folder Path>"\tfile/folder: default location (Unix Path), using ~ will resolve to the console user's home folder\n\n-D "<delimiter>"\tlist: Delimiter for -l list items, can specify literal character like $'\\n' or use these two named shortcuts "LF" "IFS"\n\n-e \t\t\tlist: allow empty selection\n\n-g "seconds"\t\talert/button: give-up timeout in seconds (dismisses windows and moves on)\n\n-h\t\t\ttext: hidden text entry (dots)\n-h\t\t\tfile/folder: show hidden files in picker\n\n-i "<path>"\t\tbutton: path to icon file or application bundle (Icon^M first, then Info.plist)\n\n-l "item,item,..."\tlist: items for list, comma delimited is default unless newline is detected (change delimiter with -D)\n\n-L "<level>"\t\talert: default is ‌"informational"/"‌warning" (same), "critical" adds a caution sign over the calling app (-a) icon\n\n-m\t\t\tapplication/file/folder/list: allow multiple selections\n\n-n\t\t\talert/button: non-Blocking window, spawns to a background and moves on, response is not captured, one button maximum\n \t\t\tNote: If this is NOT the last alert window it is advisable to use a giveup (-g) value, additional dialogs will occlude previous ones (use -X to clear)\n\n-N\t\t\talert/button: same as (-n) non-blocking window except button 1 is default\n\n-o\t\t\tall: output Applescript code\n\n-P "message text"\talert: "parenthetical" message text below the bold prompt text\n-P "<R>,<G>,<B>"\tcolor: pre-chosen RGB color values 0-65536\n-P "filename"\t\tfilename: pre-filled file name (default folder set with -d)\n-P "extension,UTI,..."\tfile: "preferred" file extensions/UTIs available to choose in picker\n-P "item,item..."\tlist: pre-chosen items, default delimiter is comma unless a newline is present or can be set with -D\n-P "pre-fill text"\ttext: pre-filled text (may be hidden with -h)\n\n-S "<Service>"\t\turl: look for specific services, useful values are: "file" (default) and "web" \n\t\t\tLess useful but still valid values are: "ftp", "media", "telnet", "news", and "remote" (applications)\n\n-s\t\t\tfile/folder: show package/bundle contents (as a folder basically)\n\n-t "Title text"\t\tbutton/list/text: window title (can be hardcoded)\n\n-v\t\t\tall: output results in format suitable for initializing shell variables using eval\n-V\t\t\tall: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from "osascript"\n\n-X\t\t\talert/button: kill any "System Events" based windows (-a specified), useful for non-Blocking without give up\n\nshui sets these GLOBAL variables within the script's running context (use -v to output these if shui is standalone/non-embedded):\n\tlastButton - value of button from button, text, and list replies\n\tlastText   - Text string from text reply\n\tlastChoice - File or Folder Unix path from files/filename/folders\n\tlastGaveUp - true or false, button and text reply types only, when a give up (-g) value is specified\n\tlastCancel - true or false, since Cancel produces an error and no result this helps determine if clicked\n\tlastResult - full Result output (stdout) from osascript that is parsed into the above values\n\tlastError  - full Error (stderr) output from osascript
 EOT
 
 ####################
@@ -212,8 +210,8 @@ case "${uiType}" in
 		fi
 		
 		## Buttons
-		#lists have a different methods of defining buttons, you define an OK and a Cancel button, not a list of button names
-		#you can only choose 2 buttons they will default to OK and Cancel if empty (but _should_ they? wow)
+		#lists have a different methods of defining buttons, you define an named button and a Cancel button only
+		#you can only choose 2 buttons they will default to OK and Cancel if empty (as Applescript does)
 		if [ -n "${buttonListArgs}" ]; then
 			#if we have 2 or more newlines then we are using newlines for button name delimiters (1 is present in a single string tested with herestring)
 			if [ "$(grep -c $'\n' <<< "${buttonListArgs}")" -ge 2 ]; then
@@ -512,12 +510,8 @@ case "${uiType}" in
 		#otherwise limit to three buttons max
 		[ -z "${nonBlockingFlag}" ] && local buttonCountLimit=3 || local buttonCountLimit=1
 
-		#if no buttons provided, fallback to Applescript behavior: "Cancel, OK" with OK the default (unless default button is defined)
-		if [ -z "${buttonListArgs}" -a -z "${nonBlockingFlag}" ]; then
-			#order could be a pref but for now it is this
-			local buttonListArgs="Cancel,OK"
-			[ -z "${defaultOption}" ] && defaultOption=1
-		elif [ -z "$buttonListArgs" -a -n "${nonBlockingFlag}" ]; then
+		#non-blocking with no buttons default to OK (otherwise we just take the first button for NB)
+		if [ -z "$buttonListArgs" -a -n "${nonBlockingFlag}" ]; then
 			local buttonListArgs="OK"
 		fi
 		
@@ -561,7 +555,7 @@ case "${uiType}" in
 				local defaultButton_AS="default button ${defaultOption}"
 			fi			
 		#otherwise make sure we have something and it matches a button name (remove escaping if present)
-		elif [ -n "$defaultOption" -a -n "$(grep -w "${defaultOption}" <<< "${buttonListArgs//\\}")" ]; then
+		elif [ -n "${defaultOption}" -a -n "$(grep -w "${defaultOption}" <<< "${buttonListArgs//\\}")" ]; then
 			local defaultButton_AS="default button \"${defaultOption}\""
 		fi
 
@@ -724,24 +718,24 @@ case "${uiType}" in
 esac
 
 #output the command if flagged for it
-if [ -n "$outputFlag" ]; then
-local a invocationQuoted
+if [ -n "${outputFlag}" ]; then
+	local a invocationQuoted
 	#a few shell specific settings depending on where this function finds itself
-	if [ -n "$ZSH_VERSION" ]; then
+	if [ -n "${ZSH_VERSION}" ]; then
 		#zsh puts arguments in an array when called both from CLI and from another function (demo)
 		#so this way we can put quotes around the arguments
 		for ((a=1; a <= ${#argv[@]}; a++ )); do
 			#if it is an option flag no quotes otherwise quote it
 			[ "${argv[$a]:0:1}" = '-' ] && invocationQuoted+="${argv[$a]} " || invocationQuoted+="'${argv[$a]}' "
 		done
-	elif [ -n "$BASH_VERSION" ]; then
+	elif [ -n "${BASH_VERSION}" ]; then
 		#if called from another function (non-CLI) bash does not put arguments into ARGV array
-		if [ "${BASH_ARGC}" -eq 1 ]; then
+		if [ "${BASH_ARGC:-0}" -eq 1 ]; then
 			#we will just output without quotes (trying to quote input is troublesome)
 			local invocationQuoted="$@"
 		else
 			#minus 2 because bash arrays are 0 based plus skip the first arg
-			for ((a=$((${BASH_ARGC}-2)); a >= 0; a-- )); do
+			for ((a=$((${BASH_ARGC:-0}-2)); a >= 0; a-- )); do
 				[ "${BASH_ARGV[$a]:0:1}" = '-' ] && invocationQuoted+="${BASH_ARGV[$a]} " || invocationQuoted+="'${BASH_ARGV[$a]}' "
 			done
 		fi
@@ -763,62 +757,110 @@ if [ -n "${killSystemEventsFlag}" ]; then
 fi
 
 #execute the applescript and capture the result
-#todo: need to capture the stderr output also...
-if [ -z "${nonBlockingFlag}" ]; then		
-	local osaresult="$(eval ${asuserPrefix} /usr/bin/osascript 2>/dev/null <<< "$APPLESCRIPT")"
-#if running in the background just eval without capturing output
+if [ -z "${nonBlockingFlag}" ]; then
+	local tempStdErrFile="/tmp/shuiError-${RANDOM}.txt"
+	#eval will always return 0 if parsing went well, so we cannot capture the exit/status code of osascript
+	local osaresult="$(eval ${asuserPrefix} /usr/bin/osascript 2>${tempStdErrFile} <<< "$APPLESCRIPT")"
+	#set these two new global vars, non-blocking does not get these
+	lastResult="${osaresult}"
+	lastError="$(< "${tempStdErrFile}")"
+	#for -v output inside $''
+	[ $(( $(wc -l <<< "${lastError}") )) -gt 1 ] && local lastError_escaped=$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' -e $'s/\r/\\\\r/g' <<< "${lastError}") || local lastError_escaped="$(sed -e 's/\\/\\\\/g' -e $'s/\r/\\\\r/g' <<< "${lastError}")"
+	rm "${tempStdErrFile}"
 else
+	#if running in the background just eval without capturing output or stderr
 	( eval ${asuserPrefix} /usr/bin/osascript &>/dev/null <<< "$APPLESCRIPT"; [ -e "${tempIcon}" ] && rm -f "${tempIcon}" ) &
 fi
 
-#parse osaresult and assign to global variables
-case "${uiType}" in
-	"alert"|"button"|"text")
-		#alert/button/text
+#only go through the effort if they clicked a button
+if [ -n "${osaresult}" ]; then
+	#if multi-line convert to single line (escape \ and then escape LF to \n)
+	[ $(( $(wc -l <<< "${osaresult}") )) -gt 1 ] && local osaresult_1liner=$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' -e $'s/\r/\\\\r/g' <<< "${osaresult}") || local osaresult_1liner="$(sed -e 's/\\/\\\\/g' -e $'s/\r/\\\\r/g' <<< "${osaresult}")"
 
-		#if text is returned
-		if grep -q "text returned:" <<< "${osaresult}"; then
-		#sample osaresult='button returned:OK, text returned:myTest, is here, gave up:false'
-			#use | or operator with -F field to buttress your matches, using only , was not robust enough
-			lastText="$(awk -F 'text returned:|, gave up:' '{print $2}' <<< ${osaresult})"
+	#before we hack up osaresult_1liner make a copy to output
+	local lastResult_escaped="${osaresult_1liner}"
 
-			#use | or operator with -F field to buttress your matches, before was using , but this was not robust for buttons
-			lastButton="$(awk -F 'button returned:|, text returned:' '{print $2}' <<< ${osaresult})"
-		#no 'text returned'
-		else
-		#sample osaresult='button returned:Exit, gave up:false'
+	#parse osaresult and assign to global variables
+	case "${uiType}" in
+		"alert"|"button"|"text")
+			#alert/button/text
+			
+			#if give up specified get that result (otherwise unset) and strip
+			if [ -n "${giveup_AS}" ]; then
+				#get the last GaveUp
+				if grep -q "gave up:true$" <<< "${osaresult_1liner}"; then
+					lastGaveUp="true"
+				else
+					lastGaveUp="false"
+				fi
 		
-			#use | or operator with -F field to buttress your matches, using "," is not robust for buttons
-			lastButton="$(awk -F 'button returned:|, gave up:' '{print $2}' <<< ${osaresult})"
-		fi
+				#trim off the LAST ",gave up:true|false"
+				osaresult_1liner=$(sed -e 's/, gave up:true$//' -e 's/, gave up:false$//' <<< "${osaresult_1liner}")
+			fi
+			
+			#NOTE: alert, button, and text ALL return "button returned:" when a non-Cancel button is clicked
+			#ONLY alert can return "Cancel" as a string but by default it will only display OK (unlike dialog or list which include Cancel)
+			#you can set the Cancel button with -c on an alert so it will have the same behavior as dialog and text (but it cannot be a highlighted default)
+			#example returns: 'button returned:Cancel, gave up:false' (but we trim 'gave up') so just  'button returned:Cancel' at this point
+			local lastButton_escaped="$(awk -F '^button returned:|, text returned:' '{print $2}' <<< "${osaresult_1liner}")"
+			#set this to false, even if we made an alert with a Cancel button (could be in another language)
+			lastCancel="false"
+			
+			#buttons cannot be multi-line so just unescape \
+			lastButton="$(sed -e 's/\\\\/\\/g' <<< "${lastButton_escaped}")"
+						
+			#trim "button returned:" from the beginning of string
+			osaresult_1liner="$(sed -e 's/^button returned:'"${lastButton_escaped//\\/\\\\}"'//' <<< "${osaresult_1liner}")"
 
-		#should be nothing after this
-		lastGaveUp="$(awk -F 'gave up:' '{print $2}' <<< ${osaresult})"
+			#if text is returned
+			if grep -q "^, text returned:" <<< "${osaresult_1liner}"; then
+			#sample osaresult='button returned:OK, text returned:myTest, is here, gave up:false'
+				#use | or operator with -F field to buttress your matches, using only , was not robust enough
+				local lastText_escaped="$(sed -e 's/^, text returned://' -e $'s/\'/\\\\\'/g' <<< "${osaresult_1liner}")"
 
-		#we can handle a button named "Exit" if desired
-		#[ "$lastButton" = "Exit" ] && exit 0
-	;;
-	# all the other type do not need to parse results like a dialog does
-	"file"*|"folder"|"application"|"color"|"url"|*)
-		#the choice we made
-		lastChoice="${osaresult}"
-	;;
-esac
+				#unescape what's left by eval'ing string inside and $''
+				eval lastText=\$\'"${lastText_escaped}"\'
+			fi
+		;;
+		# all the other types do not need parsing
+		"file"*|"folder"|"application"|"color"|"url"|*)
+			#the choice we made
+			lastChoice="${osaresult}"
+			local lastChoice_escaped="${lastResult_escaped}"
+			lastCancel="false"
+		;;
+	esac
+elif [ -z "${nonBlockingFlag}" ]; then
+	lastCancel="true"
+fi
 
 #remove temp icon if it exists and NOT non-blocking 
 [ -e "${tempIcon}" -a -z "${nonBlockingFlag}" ] && rm -f "${tempIcon}"
 
-#if -v flag is set, output all variables with a value to stderr
+#if -v flag is set, output variables to stderr so one could do something like: eval "$(shui button -v -p "Test" -b "Yes,No")"
 if [ -n "${variableFlag}" ]; then
-	#-V will also do the raw osaresult
-	[ -n "${variableFlagPlus}" ] && echo "osaresult: ${osaresult}" >&2
-	#-v will output to stdout so one could do something like: eval "$(shui button -v -p "Test" -b "Yes,No")"
-	echo "lastButton=\$'$(sed -e 's/\\/\\\\\\/' -e $'s/\'/\\\\\'/' <<< "${lastButton}")'"
-	echo "lastText=\$'$(sed -e 's/\\/\\\\\\/' -e $'s/\'/\\\\\'/' <<< "${lastText}")'"
-	echo "lastChoice=\$'$(sed -e 's/\\/\\\\\\/' -e $'s/\'/\\\\\'/' <<< "${lastChoice}")'"
-	echo "lastGaveUp=\$'$(sed -e 's/\\/\\\\\\/' -e $'s/\'/\\\\\'/' <<< "${lastGaveUp}")'"
+	#-V will also do the raw osascript results and errors, output to stderr (along with AS) to not interfere with -v output
+	if [ -n "${variableFlagPlus}" ]; then  
+		printf "Result:\n%s\n\n" "${osaresult}" >&2
+		printf "Error:\n%s\n\n" "${lastError}" >&2
+	fi
+
+	#-v will output to stdout
+	#buttons cannot contain LF or CR but they might have a single quote '
+	echo "lastButton=\$'$(sed -e $'s/\'/\\\\\'/g' <<< "${lastButton_escaped}")'"
+	#/usr/bin does not process escaped characters like \n \r \t that shell built-in echo may (shell dependent)
+	/bin/echo "lastText=\$'${lastText_escaped}'"
+	/bin/echo "lastChoice=\$'${lastChoice_escaped}'"
+	echo "lastGaveUp='${lastGaveUp}'"
+	#not in Applescript but sure helps
+	echo "lastCancel='${lastCancel}'"
+	#raw output
+	/bin/echo "lastResult=\$'${lastResult_escaped}'"
+	/bin/echo "lastError=\$'${lastError_escaped}'"
+
 fi
 }
+
 ## END SHUI FUNCTION ##
 
 ##########################################################################################
@@ -1053,15 +1095,6 @@ while :; do
 		done
 	fi
 done
-}
-
-function defaults_demo {
-#we can use these global vars to set defaults (or hardcode them in the function)
-shui_defaultOption="That"
-shui_defaultTitle="Default Title"
-shui_defaultIcon="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Clock.icns"
-
-shui button -p "Specifying a default button, title, and icon via global variables..." -b "This,That,Other" -V
 }
 
 ########
