@@ -1,25 +1,20 @@
 # shui
-shui is a shell script function for presenting user dialogs in Applescript without needing to know Applescript
+shui is a shell script wrapper for presenting user dialogs in Applescript without needing to know Applescript
 
-You can download shui from the sources folder and if need be make executable with `chmod ugo+x ./shui` while in the same folder.
-A package installer is also provided in Releases to install the source files to `/usr/local/shui` and a create symlink at `/usr/local/bin/shui`
+Download shui from the sources folder and if need be make executable with `chmod ugo+x ./shui` while in the same folder.
 
-To get help: `shui help`  
-To see a demo of all the actions: `shui demo`  
+To get help: `./shui help`  
+To see a demo of all the actions: `./shui demo`
 
 * shui allows you to present first class macOS interfaces from your shell scripts with no other external dependencies
-* shui.min can be unobtrusively embedded in your shell scripts, it is only 4 dozen lines long
-* shui can also be invoked exernally, the `-v` option will print the four shell variables to be captured and `eval`'d: `lastButton`, `lastText`, `lastChoice`, `lastGaveUp`
-* shui can also output the Applescript invoked by `osascript` use the `-o` or `-V` option (see the demo)
+* shui can be embedded and invoked by your shell scripts
+* shui can also output the Applescript you need to invoke via `osascript` in your own scripts (use the `-o` or `-V` option)
 * shui can be pronounced however you like, such as: "schway" or "shoe-eee", it is a contraction of shell + gui
 
 ## shui demo video
 
-See the shui demo in action on Catalina from the Terminal  
-[![shui demo on Catalina](https://img.youtube.com/vi/Yms5oOvVfz0/0.jpg)](https://www.youtube.com/watch?v=Yms5oOvVfz0)
-
-On Big Sur, with TCC pop-ups when run via Jamf Self Service  
-[![shui demo on Big Sur](https://img.youtube.com/vi/ZmA3iTZ8csE/0.jpg)](https://www.youtube.com/watch?v=ZmA3iTZ8csE)
+See the shui demo in action:  
+[![shui demo](https://img.youtube.com/vi/Yms5oOvVfz0/0.jpg)](https://www.youtube.com/watch?v=Yms5oOvVfz0)
 
 ## shui help contents
 ```
@@ -52,7 +47,7 @@ Options (begins with UI type(s) which apply or "all"):
 
 -B "n"			all: beep n number of times
 
--c "name/number"	button: specify the cancel button by name or number
+-c "name/number"	button: specify the cancel button by name or number (use with alert and buttons named "Cancel")
 
 -d "name/number"	button: default button name or number (0 will suppress Applescript OK button default if -b not specified)
 -d "<Folder Path>"	file/folder: default location (Unix Path), using ~ will resolve to the console user's home folder
@@ -95,15 +90,17 @@ Options (begins with UI type(s) which apply or "all"):
 
 -t "Title text"		button/list/text: window title (can be hardcoded)
 
--v			all: output results in format suitable for initializing shell variables
--V			all: output results in format suitable for initializing shell variables plus Applescrtipt and raw returned "osascript" value
+-v			all: output results in format suitable for initializing shell variables using eval
+-V			all: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from "osascript"
 
 -X			alert/button: kill any "System Events" based windows (-a specified), useful for non-Blocking without give up
 
-shui sets four GLOBAL variables within the script's running context:
+shui sets these GLOBAL variables within the script's running context (use -v to output these if shui is standalone/non-embedded):
 	lastButton - value of button from button, text, and list replies
-	lastText - Text string from text reply
+	lastText   - Text string from text reply
 	lastChoice - File or Folder Unix path from files/filename/folders
-	lastGaveUp - true or false. Only used with button and text reply type if a give up value is specified
-
+	lastGaveUp - true or false, button and text reply types only, when a give up (-g) value is specified
+	lastCancel - true or false, since Cancel produces an error and no result this helps determine if clicked
+	lastResult - full Result output (stdout) from osascript that is parsed into the above values
+	lastError  - full Error (stderr) output from osascript
 ```
