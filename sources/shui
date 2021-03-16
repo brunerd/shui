@@ -838,14 +838,14 @@ fi
 #remove temp icon if it exists and NOT non-blocking 
 [ -e "${tempIcon}" -a -z "${nonBlockingFlag}" ] && rm -f "${tempIcon}"
 
+#-o and -V will output the raw osascript Results and Errors to stderr to not interfere with -v output
+if [ -n "${outputFlag}" -o -n "${variableFlagPlus}" ]; then  
+	printf "Result:\n%s\n\n" "${osaresult}" >&2
+	printf "Error:\n%s\n\n" "${lastError}" >&2
+fi
+
 #if -v flag is set, output variables to stderr so one could do something like: eval "$(shui button -v -p "Test" -b "Yes,No")"
 if [ -n "${variableFlag}" ]; then
-	#-V will also do the raw osascript results and errors, output to stderr (along with AS) to not interfere with -v output
-	if [ -n "${variableFlagPlus}" ]; then  
-		printf "Result:\n%s\n\n" "${osaresult}" >&2
-		printf "Error:\n%s\n\n" "${lastError}" >&2
-	fi
-
 	#-v will output to stdout
 	#buttons cannot contain LF or CR but they might have a single quote '
 	echo "lastButton=\$'$(sed -e $'s/\'/\\\\\'/g' <<< "${lastButton_escaped}")'"
