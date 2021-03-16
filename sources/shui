@@ -23,7 +23,7 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 ## BEGIN SHUI FUNCTION ##
 function shui {
 : <<-EOL
-shui (20210315) - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
+shui (20210316) - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
 MIT License
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -765,7 +765,7 @@ if [ -z "${nonBlockingFlag}" ]; then
 	lastResult="${osaresult}"
 	lastError="$(< "${tempStdErrFile}")"
 	#for -v output inside $''
-	[ $(( $(wc -l <<< "${lastError}") )) -gt 1 ] && local lastError_escaped=$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' -e $'s/\r/\\\\r/g' <<< "${lastError}") || local lastError_escaped="$(sed -e 's/\\/\\\\/g' -e $'s/\r/\\\\r/g' <<< "${lastError}")"
+	[ $(( $(wc -l <<< "${lastError}") )) -gt 1 ] && local lastError_escaped="$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' <<< "${lastError}" | sed -e $'s/\r/\\\\r/g')" || local lastError_escaped="$(sed -e 's/\\/\\\\/g' -e $'s/\r/\\\\r/g' <<< "${lastError}")"
 	rm "${tempStdErrFile}"
 else
 	#if running in the background just eval without capturing output or stderr
@@ -775,10 +775,10 @@ fi
 #only go through the effort if they clicked a button
 if [ -n "${osaresult}" ]; then
 	#if multi-line convert to single line (escape \ and then escape LF to \n)
-	[ $(( $(wc -l <<< "${osaresult}") )) -gt 1 ] && local osaresult_1liner=$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' -e $'s/\r/\\\\r/g' <<< "${osaresult}") || local osaresult_1liner="$(sed -e 's/\\/\\\\/g' -e $'s/\r/\\\\r/g' <<< "${osaresult}")"
+	[ $(( $(wc -l <<< "${osaresult}") )) -gt 1 ] && local osaresult_1liner="$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' <<< "${osaresult}" | sed -e $'s/\r/\\\\r/g')" || local osaresult_1liner="$(sed -e 's/\\/\\\\/g' -e $'s/\r/\\\\r/g' <<< "${osaresult}")"
 
-	#before we hack up osaresult_1liner make a copy to output
-	local lastResult_escaped="${osaresult_1liner}"
+	#before we hack up osaresult_1liner make a copy to output inside $''
+	local lastResult_escaped="$(sed -e $'s/\'/\\\\\'/g' <<< "${osaresult_1liner}")"
 
 	#parse osaresult and assign to global variables
 	case "${uiType}" in
@@ -826,7 +826,8 @@ if [ -n "${osaresult}" ]; then
 		"file"*|"folder"|"application"|"color"|"url"|*)
 			#the choice we made
 			lastChoice="${osaresult}"
-			local lastChoice_escaped="${lastResult_escaped}"
+			#escape any \n (weird) or \r (Icon^M) in the filename
+			[ $(( $(wc -l <<< "${lastChoice}") )) -gt 1 ] && local lastChoice_escaped="$(sed -e 's/\\/\\\\\\/g' -e $'s/\'/\\\\\'/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' <<< "${lastChoice}" | sed -e $'s/\r/\\\\r/g')" || local lastChoice_escaped="$(sed -e 's/\\/\\\\\\/g' -e $'s/\'/\\\\\'/g' -e $'s/\r/\\\\r/g' <<< "${lastChoice}")"
 			lastCancel="false"
 		;;
 	esac
