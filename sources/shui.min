@@ -292,7 +292,7 @@ elif [ -e "${0}" ]; then
 fi
 
 #build our list of function names ending in "_demo"
-testFunctionsList="$(grep ^function "${myPath}" | grep "_demo$" | awk '{print $2}' | sort -df)"
+testFunctionsList="$(grep ^function "${myPath}" | grep "_demo" | awk '{print $2}' | sort -df)"
 while :; do
 	shui list -D "LF" -l "${testFunctionsList}" -b "Run,Exit" -p "Pick one or more test functions to run..." -t "shui" -m -X
 	#if it's empty quit (2nd button in list is ALWAYS Cancel) otherwise invoke the function
