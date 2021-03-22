@@ -22,8 +22,9 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 
 ## BEGIN SHUI FUNCTION ##
 function shui {
+local version="20210321"
 : <<-EOL
-shui (20210316) - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
+shui - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
 MIT License
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -121,11 +122,14 @@ EOT
 ####################
 
 if [ -z "${1}" ]; then
-	echo -e "No arguments given!\nFor usage: shui help\nFor examples: shui demo" 2>/dev/null
-	return
+	echo -e "No arguments given!\nFor usage: shui help\nFor examples: shui demo" >&2
+	return 1
 elif [ "${1}" = "help" ]; then 
-	echo "${helpText}" > /dev/stderr
-	exit
+	echo "${helpText}" >&2
+	return 0
+elif [ "${1}" = "version" ]; then 
+	echo "${version}"
+	return 0
 elif [ "$(cut -c1-1 <<< ${1})" = "-" ]; then
 		local uiType="button"
 else
@@ -172,7 +176,7 @@ done
 
 #if we don't have a promptString at the minimum then exit (unless this is for a color or url)
 if [ -z "${promptString}" -a "${uiType}" != "color" -a "${uiType}" != "url" ]; then
-	echo "Please provide prompt text in the form of: shui text -p \"text\"" >/dev/stderr
+	echo "Please provide prompt text in the form of: shui <UI Type> -p \"<prompt text>\"\nFor usage: shui help\nFor examples: shui demo" >&2
 	return
 fi
 
@@ -205,8 +209,8 @@ case "${uiType}" in
 		local listItems_AS preChosenList_AS listArray preChosenArray button_OK button_cancel
 
 		if [ -z "${listItems}" ]; then
-			echo "No data for list!"
-			return
+			echo -e "No data for list!\nSpecify list data with: -l \"<data>\"\nDefault delimiter comma (,) can be changed with -D \"<char>\""
+			return 1
 		fi
 		
 		## Buttons
@@ -300,11 +304,9 @@ case "${uiType}" in
 				${beep_AS}
 				with timeout of $timeoutSecondsAppleScript seconds
 					set dialogAnswer to choose from list {${listItems_AS}} ${withMultiple_AS} ${title_AS} ${withPrompt_AS} ${defaultItems_AS} ${withEmpty_AS} OK button name {"${button_OK:-OK}"} cancel button name {"${button_cancel:-Cancel}"}
-					#if we click cancel it is a boolean false
-					if class of dialogAnswer is boolean
-						return ""
+					if class of dialogAnswer is boolean then
+						error number -128
 					end if
-					#create list output with newlines
 					if (count of dialogAnswer) is greater than 1 then
 						set dialogAnswers to ""
 						repeat with choice from 1 to count of dialogAnswer
@@ -312,7 +314,6 @@ case "${uiType}" in
 							set dialogAnswers to dialogAnswers & theCurrentItem & "\n"
 						end repeat
 					else
-						#return the single item
 						return dialogAnswer as string
 					end if
 				end timeout
@@ -409,13 +410,11 @@ case "${uiType}" in
 			${beep_AS}
 			with timeout of $timeoutSecondsAppleScript seconds
 				set dialogAnswer to choose application ${title_AS} ${withPrompt_AS} ${withMultiple_AS} as alias
-				#for multiple selections
 				if class of dialogAnswer is list then
 					set dialogAnswers to ""
 					repeat with thisAlias from 1 to count of dialogAnswer
 						set dialogAnswers to dialogAnswers & POSIX path of item thisAlias of dialogAnswer & "\n"
 					end repeat
-				#for a single choice
 				else if class of dialogAnswer is alias then
 					set dialogAnswer to POSIX path of dialogAnswer
 				end if
@@ -483,16 +482,16 @@ case "${uiType}" in
 		case "${uiType}" in
 			"alert")
 				#since we are sharing with button/text
-				windowType="alert"
+				local windowType="alert"
 		
 				#use the -P text for "parenthetical" message text 
 				#for an alert the "prompt" (promptString) is the BOLD portion (almost like a title)
 				[ -n "${preFillString}" ] && local message_AS="message \"${preFillString}\""
 			;;
-			*)
+			"button"|"text")
 				#only the button/text case cares about the windowtype so it's OK if this is set and it's list, app, etc...
-				windowType="dialog"
-
+				local windowType="dialog"
+				
 				#unset alert only options for applescript
 				unset alertLevel_AS
 
@@ -502,6 +501,10 @@ case "${uiType}" in
 
 				#alerts cannot have a title
 				[ -n "$titleString" ] && local title_AS="with title \"$titleString\""
+			;;
+			*)
+				echo -e "Unknown UI Type: \"${uiType}\"\nFor usage: shui help\nFor examples: shui demo" >&2
+				return 1
 			;;
 		esac
 		
@@ -744,9 +747,8 @@ if [ -n "${outputFlag}" ]; then
 	echo -e "Arguments:\n${uiType} ${invocationQuoted}\n" >&2
 fi
 
-
-#output the applescript cleanly (squeeze out repeating spaces and empty lines)
-[ -n "$outputFlag" ] && (echo "Applescript:" >&2; cat <<< "$APPLESCRIPT" | tr -s ' ' | sed '/^$/d' >&2; echo >&2)
+#output the applescript removing empty lines
+[ -n "$outputFlag" ] && (echo "Applescript:" >&2; cat <<< "$APPLESCRIPT" | sed '/^$/d' >&2; echo >&2)
 
 #kill previous System Events windows (killall does not work as expected)
 if [ -n "${killSystemEventsFlag}" ]; then
@@ -760,27 +762,33 @@ fi
 if [ -z "${nonBlockingFlag}" ]; then
 	local tempStdErrFile="/tmp/shuiError-${RANDOM}.txt"
 	#eval will always return 0 if parsing went well, so we cannot capture the exit/status code of osascript
-	local osaresult="$(eval ${asuserPrefix} /usr/bin/osascript 2>${tempStdErrFile} <<< "$APPLESCRIPT")"
 	#set these two new global vars, non-blocking does not get these
-	lastResult="${osaresult}"
+	lastResult="$(eval ${asuserPrefix} /usr/bin/osascript 2>${tempStdErrFile} <<< "$APPLESCRIPT")"
 	lastError="$(< "${tempStdErrFile}")"
-	#for -v output inside $''
-	[ $(( $(wc -l <<< "${lastError}") )) -gt 1 ] && local lastError_escaped="$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' <<< "${lastError}" | sed -e $'s/\r/\\\\r/g')" || local lastError_escaped="$(sed -e 's/\\/\\\\/g' -e $'s/\r/\\\\r/g' <<< "${lastError}")"
+	#clean up
 	rm "${tempStdErrFile}"
+	#for -v/-V output inside $''
+	#escape \n only if present (otherwise nothing) and/or then escape the backslash \
+	[ $(( $(wc -l <<< "${lastError}") )) -gt 1 ] && local lastError_escaped="$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' <<< "${lastError}")" || local lastError_escaped="$(sed -e 's/\\/\\\\/g' <<< "${lastError}")"
+	#escape whitespace \b \f \r \t \v and single quote '
+	lastError_escaped="$(sed -e $'s/\r/\\\\r/g' -e $'s/\t/\\\\t/g' -e $'s/\b/\\\\b/g' -e $'s/\f/\\\\f/g' -e $'s/\v/\\\\v/g' -e $'s/\'/\\\\\'/g' <<< "${lastError_escaped}")"
 else
 	#if running in the background just eval without capturing output or stderr
 	( eval ${asuserPrefix} /usr/bin/osascript &>/dev/null <<< "$APPLESCRIPT"; [ -e "${tempIcon}" ] && rm -f "${tempIcon}" ) &
 fi
 
 #only go through the effort if they clicked a button
-if [ -n "${osaresult}" ]; then
-	#if multi-line convert to single line (escape \ and then escape LF to \n)
-	[ $(( $(wc -l <<< "${osaresult}") )) -gt 1 ] && local osaresult_1liner="$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' <<< "${osaresult}" | sed -e $'s/\r/\\\\r/g')" || local osaresult_1liner="$(sed -e 's/\\/\\\\/g' -e $'s/\r/\\\\r/g' <<< "${osaresult}")"
+if [ -n "${lastResult}" ]; then
+	#for -v/-V output inside $''
+	#escape \n only if present (otherwise nothing) and/or then escape the backslash \
+	[ $(( $(wc -l <<< "${lastResult}") )) -gt 1 ] && local lastResult_escaped="$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' <<< "${lastResult}")" || local lastResult_escaped="$(sed -e 's/\\/\\\\/g' <<< "${lastResult}")"
+	#escape whitespace \b \f \r \t \v and single quote '
+	lastResult_escaped="$(sed -e $'s/\r/\\\\r/g' -e $'s/\t/\\\\t/g' -e $'s/\b/\\\\b/g' -e $'s/\f/\\\\f/g' -e $'s/\v/\\\\v/g' -e $'s/\'/\\\\\'/g' <<< "${lastResult_escaped}")"
 
-	#before we hack up osaresult_1liner make a copy to output inside $''
-	local lastResult_escaped="$(sed -e $'s/\'/\\\\\'/g' <<< "${osaresult_1liner}")"
+	#this copy will be truncated as it is parsed
+	local lastResultFragment_escaped="${lastResult_escaped}"
 
-	#parse osaresult and assign to global variables
+	#parse lastResult and assign to global variables
 	case "${uiType}" in
 		"alert"|"button"|"text")
 			#alert/button/text
@@ -788,35 +796,35 @@ if [ -n "${osaresult}" ]; then
 			#if give up specified get that result (otherwise unset) and strip
 			if [ -n "${giveup_AS}" ]; then
 				#get the last GaveUp
-				if grep -q "gave up:true$" <<< "${osaresult_1liner}"; then
+				if grep -q "gave up:true$" <<< "${lastResultFragment_escaped}"; then
 					lastGaveUp="true"
 				else
 					lastGaveUp="false"
 				fi
 		
 				#trim off the LAST ",gave up:true|false"
-				osaresult_1liner=$(sed -e 's/, gave up:true$//' -e 's/, gave up:false$//' <<< "${osaresult_1liner}")
+				lastResultFragment_escaped=$(sed -e 's/, gave up:true$//' -e 's/, gave up:false$//' <<< "${lastResultFragment_escaped}")
 			fi
 			
 			#NOTE: alert, button, and text ALL return "button returned:" when a non-Cancel button is clicked
 			#ONLY alert can return "Cancel" as a string but by default it will only display OK (unlike dialog or list which include Cancel)
 			#you can set the Cancel button with -c on an alert so it will have the same behavior as dialog and text (but it cannot be a highlighted default)
 			#example returns: 'button returned:Cancel, gave up:false' (but we trim 'gave up') so just  'button returned:Cancel' at this point
-			local lastButton_escaped="$(awk -F '^button returned:|, text returned:' '{print $2}' <<< "${osaresult_1liner}")"
+			local lastButton_escaped="$(awk -F '^button returned:|, text returned:' '{print $2}' <<< "${lastResultFragment_escaped}")"
 			#set this to false, even if we made an alert with a Cancel button (could be in another language)
 			lastCancel="false"
 			
-			#buttons cannot be multi-line so just unescape \
-			lastButton="$(sed -e 's/\\\\/\\/g' <<< "${lastButton_escaped}")"
-						
+			#unescape what's left by eval'ing string inside and $''
+			eval lastButton=\$\'"${lastButton_escaped}"\'
+					
 			#trim "button returned:" from the beginning of string
-			osaresult_1liner="$(sed -e 's/^button returned:'"${lastButton_escaped//\\/\\\\}"'//' <<< "${osaresult_1liner}")"
+			lastResultFragment_escaped="$(sed -e 's/^button returned:'"${lastButton_escaped//\\/\\\\}"'//' <<< "${lastResultFragment_escaped}")"
 
 			#if text is returned
-			if grep -q "^, text returned:" <<< "${osaresult_1liner}"; then
+			if grep -q "^, text returned:" <<< "${lastResultFragment_escaped}"; then
 			#sample osaresult='button returned:OK, text returned:myTest, is here, gave up:false'
 				#use | or operator with -F field to buttress your matches, using only , was not robust enough
-				local lastText_escaped="$(sed -e 's/^, text returned://' -e $'s/\'/\\\\\'/g' <<< "${osaresult_1liner}")"
+				local lastText_escaped="$(sed -e 's/^, text returned://' <<< "${lastResultFragment_escaped}")"
 
 				#unescape what's left by eval'ing string inside and $''
 				eval lastText=\$\'"${lastText_escaped}"\'
@@ -825,12 +833,16 @@ if [ -n "${osaresult}" ]; then
 		# all the other types do not need parsing
 		"file"*|"folder"|"application"|"color"|"url"|*)
 			#the choice we made
-			lastChoice="${osaresult}"
-			#escape any \n (weird) or \r (Icon^M) in the filename
-			[ $(( $(wc -l <<< "${lastChoice}") )) -gt 1 ] && local lastChoice_escaped="$(sed -e 's/\\/\\\\\\/g' -e $'s/\'/\\\\\'/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' <<< "${lastChoice}" | sed -e $'s/\r/\\\\r/g')" || local lastChoice_escaped="$(sed -e 's/\\/\\\\\\/g' -e $'s/\'/\\\\\'/g' -e $'s/\r/\\\\r/g' <<< "${lastChoice}")"
+			lastChoice="${lastResult}"
+			#Icon^M custom icon files have a traling carriage return \r in the filename etc..
+			#escape \n only if present (otherwise nothing) and/or then escape the backslash \
+			[ $(( $(wc -l <<< "${lastChoice}") )) -gt 1 ] && local lastChoice_escaped="$(sed -e 's/\\/\\\\/g' -e :a -e N -e '$!ba' -e 's/\n/\\n/g' <<< "${lastChoice}")" || local lastChoice_escaped="$(sed -e 's/\\/\\\\/g' <<< "${lastChoice}")"
+			#escape whitespace \b \f \r \t \v and single quote '
+			lastChoice_escaped="$(sed -e $'s/\r/\\\\r/g' -e $'s/\t/\\\\t/g' -e $'s/\b/\\\\b/g' -e $'s/\f/\\\\f/g' -e $'s/\v/\\\\v/g' -e $'s/\'/\\\\\'/g' <<< "${lastChoice_escaped}")"
 			lastCancel="false"
 		;;
 	esac
+#this will catch the list cancel (everything else but list generate error output)
 elif [ -z "${nonBlockingFlag}" ]; then
 	lastCancel="true"
 fi
@@ -840,26 +852,30 @@ fi
 
 #-o and -V will output the raw osascript Results and Errors to stderr to not interfere with -v output
 if [ -n "${outputFlag}" -o -n "${variableFlagPlus}" ]; then  
-	printf "Result:\n%s\n\n" "${osaresult}" >&2
+	printf "Result:\n%s\n\n" "${lastResult}" >&2
 	printf "Error:\n%s\n\n" "${lastError}" >&2
 fi
 
 #if -v flag is set, output variables to stderr so one could do something like: eval "$(shui button -v -p "Test" -b "Yes,No")"
 if [ -n "${variableFlag}" ]; then
 	#-v will output to stdout
-	#buttons cannot contain LF or CR but they might have a single quote '
-	echo "lastButton=\$'$(sed -e $'s/\'/\\\\\'/g' <<< "${lastButton_escaped}")'"
 	#/usr/bin does not process escaped characters like \n \r \t that shell built-in echo may (shell dependent)
+	#buttons should not contain these chars but just in case
+	/bin/echo "lastButton=\$'${lastButton_escaped}'"
 	/bin/echo "lastText=\$'${lastText_escaped}'"
 	/bin/echo "lastChoice=\$'${lastChoice_escaped}'"
-	echo "lastGaveUp='${lastGaveUp}'"
-	#not in Applescript but sure helps
-	echo "lastCancel='${lastCancel}'"
+	#ONLY true/false IF an alert or button AND give up (-g) has been specified 
+	/bin/echo "lastGaveUp='${lastGaveUp}'"
+	#NOT from Applescript but sure helps to have boolean for Cancel status
+	/bin/echo "lastCancel='${lastCancel}'"
 	#raw output
 	/bin/echo "lastResult=\$'${lastResult_escaped}'"
 	/bin/echo "lastError=\$'${lastError_escaped}'"
 
 fi
+
+#if cancelled or had ANY error output: return non-zero for a shell fail
+[ -n "${lastError}" -o "${lastCancel}" = "true" ] && return 1
 }
 
 ## END SHUI FUNCTION ##
@@ -871,7 +887,13 @@ fi
 function button_demo {
 shui button -p "Specify icons by specific file, the .app bundle or with keywords \"stop\", \"caution\", and \"note\"\nDefault buttons can be specified by name or number..." -b "OK,Cool,Cancel" -d "Cool" -t "Your Title Here" -i "/System/Library/CoreServices/Finder.app" -V
 
-shui button -p "You can specify a cancel button by name (Skip) or number (3)\nCancel will return no button results when clicked " -b "This,That,Skip" -d 1 -c 3 -i "caution" -V
+#lastCancel is set to true/false every time shui is invoked, also for single buttons with comma use a trailing semi-colon
+[ "${lastCancel}" = "true" ] && shui button -p "You clicked Cancel!" -i "stop" -t "Cancel Clicked" -b "Yes, I did;" -d1
+
+shui button -p "You can specify a cancel button by name (Skip) or number (3)\nCancel will return NO button results when clicked\nYou can also use the \$lastCancel variable\n\nClick Skip for Cancel detection" -b "This,That,Skip" -d 1 -c 3 -i "caution" -V
+
+#lastCancel is set to true/false every time shui is invoked, also for single buttons with comma use a trailing semi-colon
+[ "${lastCancel}" = "true" ] && shui button -p "You clicked Cancel!" -i "stop" -t "Cancel Clicked" -b "Yes, I did;" -d1
 
 shui button -p "Specifying a give up time (-g) makes a nice pop-up that alerts but moves on after a while..." -g "10" -b "OK" -d 1 -t "Title" -i "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Clock.icns" -V
 
@@ -911,13 +933,18 @@ shui button -p "${multiLineText}" -b "\0360\0237\0237\0242 Yes,\xf0\x9f\x9b\x91 
 }
 
 function text_demo {
-shui text -p "Hidden Input with Pre-Filled answer...\nSpecifying an app brings focus and icon keywords will badge the app icon" -h -P "secr3t" -t "Password Prompt" -i "stop" -b "Submit,Cancel" -d 1 -V -a Terminal
-
-#buttons named cancel are treated special and do not return a button name or anything but our function will return a gave up as false to help
+#single line, pre-filled answers are returned on give-up
 shui text -p "Question for you, 15 seconds though!\nNote: It will return the pre-fill after timeout, lastGaveUp will be true" -P "Pre-Filled Answer" -t "Title" -i "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Actions.icns" -b "Send,Save,Trash" -d 1 -c 3 -g 15 -V
 
-#buttons named cancel are treated special and do not return a button name or anything but our function will return a gave up as false to help
-shui text -p "You can put commas in buttons if you delimit with newlines\nLack of default button ensures accidentally hitting Return does not move on..." -i "note" -t "Title" -b "OK, Boomer"$'\n'"Cancel" -V
+#passwords benefit from being hidden
+shui text -p "Hidden Input with Pre-Filled answer...\nSpecifying an app brings focus and icon keywords will badge the app icon" -h -P "secr3t" -t "Password Prompt" -i "stop" -b "Submit,Cancel" -d 1 -V -a Terminal
+
+#multi-line windows are possible if you padd the pre-fill with newlines ending with a space or any other character(s), "\n" are evaluated as LF or you can use $'\n'
+#FYI: text entry window will NOT have scroll bars
+shui text -p "Please tell us what you REALLY think:" -P "\n\n\n " -t "Multi-Line Text Responses"  -b "Cancel,Comment" -d 2 -V
+
+#buttons with commas are possible and automatically recognized when a newline is present
+shui text -p "You can put commas in buttons if you delimit with newlines\n\nLack of default button ensures accidentally hitting Return does not move on..." -i "note" -t "Title" -b "OK, Boomer"$'\n'"Cancel" -V
 }
 
 function list_demo {
@@ -1083,11 +1110,11 @@ elif [ -e "${0}" ]; then
 	local myPath="$0"
 fi
 
-#build our list
-testFunctionsList="$(grep ^function "${myPath}" | grep "_demo" | awk '{print $2}' | sort -df)"
+#build our list of function names ending in "_demo"
+testFunctionsList="$(grep ^function "${myPath}" | grep "_demo$" | awk '{print $2}' | sort -df)"
 while :; do
 	shui list -D "LF" -l "${testFunctionsList}" -b "Run,Exit" -p "Pick one or more test functions to run..." -t "shui" -m -X
-	#if it's empty quit otherwise invoke the function
+	#if it's empty quit (2nd button in list is ALWAYS Cancel) otherwise invoke the function
 	if [ -z "${lastChoice}" ]; then
 		exit
 	else
