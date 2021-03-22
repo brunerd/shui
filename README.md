@@ -84,7 +84,7 @@ Options (begins with UI type(s) which apply or "all"):
 -P "pre-fill text"	text: pre-filled text (may be hidden with -h)
 
 -S "<Service>"		url: look for specific services, useful values are: "file" (default) and "web" 
-			Less useful but still valid values are: "ftp", "media", "telnet", "news", and "remote" (applications)
+			Less useful but still valid values are: "ftp", "media", "telnet", "news", "remote" (applications), and "directory" (services)
 
 -s			file/folder: show package/bundle contents (as a folder basically)
 
