@@ -22,7 +22,7 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 
 ## BEGIN SHUI FUNCTION ##
 function shui {
-local version="20210322"
+local version="20210323"
 : <<-EOL
 shui - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
@@ -530,8 +530,6 @@ case "${uiType}" in
 			IFS=,
 		fi
 		
-		# we parse the buttons, see if the default button exists
-		#if the default button is not found empty it
 		#button list creation
 		local button buttonListItems buttonCount
 		for button in ${buttonListArgs}; do
@@ -558,8 +556,8 @@ case "${uiType}" in
 			if [ "${defaultOption}" -ge 1 -a "${defaultOption}" -le "${buttonCount}" ]; then
 				local defaultButton_AS="default button ${defaultOption}"
 			fi			
-		#otherwise make sure we have something and it matches a button name (remove escaping if present)
-		elif [ -n "${defaultOption}" -a -n "$(grep -w "${defaultOption}" <<< "${buttonListArgs//\\}")" ]; then
+		#otherwise if we have a button name see if it is the button list items (-n reduces list to 1 item)
+		elif [ -n "${defaultOption}" -a -n "$(grep -w "${defaultOption}" <<< "${buttonListItems}")" ]; then
 			local defaultButton_AS="default button \"${defaultOption}\""
 		fi
 
@@ -639,7 +637,7 @@ case "${uiType}" in
 
 					#if alertIconUnixPath is empty (no Icon^M), see if this is a bundle with an Info.plist and interogate
 					if [ -f "${iconArgument}"/Contents/Info.plist -a -z "${alertIconUnixPath}" ]; then
-						local bundleIconFileName="$(defaults read "${iconArgument}"/Contents/Info.plist CFBundleIconFile)"
+						local bundleIconFileName="$(defaults read "${iconArgument}"/Contents/Info.plist CFBundleIconFile 2>/dev/null)"
 						[ -z "${bundleIconFileName}" ] && bundleIconFileName="$(defaults read "${iconArgument}"/Contents/Info.plist CFBundleIconName 2>/dev/null)"
 						
 						#append icns if it does not have that as an extension (Apple apps like Finder do not)
