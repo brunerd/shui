@@ -762,18 +762,18 @@ fi
 #-x little hammer - only kill System Events and osascript procs belonging to the calling script (only for embedded shui, not standalone, use -X)
 if [ -n "${killChildProcsOnly}" ]; then
 	local sysEventsPID osascriptPID childPID
-	local childPIDs=$(pgrep -P $$)
+	local childPIDs="$(pgrep -P $$)"
 	
 	#loop through all child PIDs
 	for childPID in $(pgrep -P $$); do 
-		local grandChildPID=$(pgrep -P $childPID)
+		local grandChildPID="$(pgrep -P $childPID)"
 		#get the process name
-		local grandChildPIDString=$(ps ${grandChildPID} | tail -n +2)
+		local grandChildPIDString="$(ps ${grandChildPID} | tail -n +2)"
 		#if the child process ends with osascript proceed
 		if grep -q "osascript$" <<< "${grandChildPIDString}"; then
 			#this process may still one process away because of sudo usage
 			if grep -q "sudo$" <<< "$(pgrep -laP $childPID)"; then
-				local childPIDToKill=$(pgrep -P $grandChildPID)
+				local childPIDToKill="$(pgrep -P $grandChildPID)"
 			else
 				local childPIDToKill="${grandChildPID}"
 			fi
@@ -801,12 +801,12 @@ else
 	{ ( eval ${asuserPrefix} /usr/bin/osascript &>/dev/null <<< "$APPLESCRIPT"; [ -e "${tempIcon}" ] && rm -f "${tempIcon}" ) & }
 	
 	local childPID=$!
-	local grandChildPID=$(pgrep -P ${childPID})
+	local grandChildPID="$(pgrep -P ${childPID})"
 
 	#only if the granchild PID exists proceed and this was not -a targetted
 	if [ -n "${grandChildPID}" -a -z "${tellApp_AS}" ]; then
 		if grep -q "sudo$" <<< "$(pgrep -laP $childPID)"; then
-			lastPID=$(pgrep -P $grandChildPID)
+			lastPID="$(pgrep -P $grandChildPID)"
 		else
 			lastPID="${grandChildPID}"
 		fi
