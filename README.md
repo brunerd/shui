@@ -104,5 +104,5 @@ shui sets these GLOBAL variables within the script's running context (use -v to 
 	lastCancel - true or false, since Cancel produces an error and no result this helps determine if clicked
 	lastResult - full Result output (stdout) from osascript that is parsed into the above values
 	lastError  - full Error (stderr) output from osascript
-	lastPID    - the child PID of a non-blocking (-n) alert or button
+	lastPID    - the child PID of a non-blocking (-n) alert or button (excluding -a invoked)
 ```
