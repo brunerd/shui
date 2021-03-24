@@ -93,7 +93,8 @@ Options (begins with UI type(s) which apply or "all"):
 -v			all: output results in format suitable for initializing shell variables using eval
 -V			all: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from "osascript"
 
--X			alert/button: kill any "System Events" based windows (-a specified), useful for non-Blocking without give up
+-X			alert/button: kill ALL osascript and "System Events" processes, like orphaned non-Blocking (background) windows. Use with CAUTION!
+-x			alert/button: kill only child osascript processes belonging to the running script (embedded usage only)
 
 shui sets these GLOBAL variables within the script's running context (use -v to output these if shui is standalone/non-embedded):
 	lastButton - value of button from button, text, and list replies
@@ -103,4 +104,5 @@ shui sets these GLOBAL variables within the script's running context (use -v to 
 	lastCancel - true or false, since Cancel produces an error and no result this helps determine if clicked
 	lastResult - full Result output (stdout) from osascript that is parsed into the above values
 	lastError  - full Error (stderr) output from osascript
+	lastPID    - the child PID of a non-blocking (-n) alert or button
 ```
