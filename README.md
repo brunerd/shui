@@ -74,7 +74,7 @@ Options (begins with UI type(s) which apply or "all"):
 
 -N			alert/button: same as (-n) non-blocking window except button 1 is default
 
--o			all: output Applescript code
+-o			all: output shell arguments, Applescript code and raw Results and Errors
 
 -P "message text"	alert: "parenthetical" message text below the bold prompt text
 -P "<R>,<G>,<B>"	color: pre-chosen RGB color values 0-65536
@@ -90,8 +90,8 @@ Options (begins with UI type(s) which apply or "all"):
 
 -t "Title text"		button/list/text: window title (can be hardcoded)
 
--v			all: output results in format suitable for initializing shell variables using eval
--V			all: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from "osascript"
+-v			all: output results in format suitable for initializing shell variables
+-V			all: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from osascript (-o)
 
 -X			alert/button: kill ALL osascript and "System Events" processes, like orphaned non-Blocking (background) windows. Use with CAUTION!
 -x			alert/button: kill only child osascript processes belonging to the running script (embedded usage only)
