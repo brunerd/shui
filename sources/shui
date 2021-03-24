@@ -22,7 +22,7 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 
 ## BEGIN SHUI FUNCTION ##
 function shui {
-local version="20210323"
+local version="20210324"
 : <<-EOL
 shui - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
@@ -47,7 +47,7 @@ EOL
 ##############
 
 #we unset these GLOBAL variables each time the function is entered (use -v to have them output to stdout)
-unset lastButton lastText lastChoice lastGaveUp lastCancel lastError lastResult
+unset lastButton lastText lastChoice lastGaveUp lastCancel lastError lastResult lastPID
 
 ## Use global var or overwrite with hard coded values
 #Unix path or App Bundle accepted (if they contsain icns, RIP in Big Sur)
@@ -114,7 +114,7 @@ fi
 local APPLESCRIPT 
 
 read -r -d '' helpText <<'EOT'
-shui - add Applescript user interaction to your shell script (https://github.com/brunerd/shui)\n\nUsage:\nshui [<UI Type>] -p "<prompt text>" \n\nUI Types:\nalert: alert with icon of the calling appication (use -a), prompt (-p) is bold, message text (-P) is smaller, can set level (-L) to critical\napplication: presents list of Launch Services registered applicatins can specify -m for multiple\nbutton (default): button based reply, use -b to change button names (max 3), defaults to "Cancel,OK" like Applescript does\ncolor: no options, presents color picker and returns "R,G,B" with individual values (0-65535)\nfile: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions or UTIs, -h hidden items, -s show bundle contents\nfolder: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions, -h hidden items, -s show bundle contents\nlist: pick one or mutiple (-m) items from a list of choices, use -D for custom delimiter (comma default)\ntext: like button but with a single line text entry box, set pre-filled text with -P, hidden text with -h\nurl: returns a URL, default is file servers, use -S to set the kind of server to look for, valid value listed below\n\nRequired:\n-p "prompt text"\talert/button/file/folder/list: the text prompt presented to the user, required for all type (except color)\n\nOptions (begins with UI type(s) which apply or "all"):\n\n-a "<application>"\tall (except filename): specify the application that will present the Applescript dialog, alert will have app icon and block app\n\n-b "<button>;...;..."\tbutton: max 3 button names, comma or semi-colon delimited (if commas AND semi-colons are present, semis "win") \n\t\t\t\t\t\tif no buttons specified it defaults to the standard Applescript "Cancel,OK"\n-b "<OK>,[<Cancel>]"\tlist: max 2 button names, comma delimited, first is the OK button name, second is Cancel button name (optional)\n\n-B "n"\t\t\tall: beep n number of times\n\n-c "name/number"\tbutton: specify the cancel button by name or number (use with alert and buttons named "Cancel")\n\n-d "name/number"\tbutton: default button name or number (0 will suppress Applescript OK button default if -b not specified)\n-d "<Folder Path>"\tfile/folder: default location (Unix Path), using ~ will resolve to the console user's home folder\n\n-D "<delimiter>"\tlist: Delimiter for -l list items, can specify literal character like $'\\n' or use these two named shortcuts "LF" "IFS"\n\n-e \t\t\tlist: allow empty selection\n\n-g "seconds"\t\talert/button: give-up timeout in seconds (dismisses windows and moves on)\n\n-h\t\t\ttext: hidden text entry (dots)\n-h\t\t\tfile/folder: show hidden files in picker\n\n-i "<path>"\t\tbutton: path to icon file or application bundle (Icon^M first, then Info.plist)\n\n-l "item,item,..."\tlist: items for list, comma delimited is default unless newline is detected (change delimiter with -D)\n\n-L "<level>"\t\talert: default is ‌"informational"/"‌warning" (same), "critical" adds a caution sign over the calling app (-a) icon\n\n-m\t\t\tapplication/file/folder/list: allow multiple selections\n\n-n\t\t\talert/button: non-Blocking window, spawns to a background and moves on, response is not captured, one button maximum\n \t\t\tNote: If this is NOT the last alert window it is advisable to use a giveup (-g) value, additional dialogs will occlude previous ones (use -X to clear)\n\n-N\t\t\talert/button: same as (-n) non-blocking window except button 1 is default\n\n-o\t\t\tall: output Applescript code\n\n-P "message text"\talert: "parenthetical" message text below the bold prompt text\n-P "<R>,<G>,<B>"\tcolor: pre-chosen RGB color values 0-65536\n-P "filename"\t\tfilename: pre-filled file name (default folder set with -d)\n-P "extension,UTI,..."\tfile: "preferred" file extensions/UTIs available to choose in picker\n-P "item,item..."\tlist: pre-chosen items, default delimiter is comma unless a newline is present or can be set with -D\n-P "pre-fill text"\ttext: pre-filled text (may be hidden with -h)\n\n-S "<Service>"\t\turl: look for specific services, useful values are: "file" (default) and "web" \n\t\t\tLess useful but still valid values are: "ftp", "media", "telnet", "news", "remote" (applications), and "directory" (services)\n\n-s\t\t\tfile/folder: show package/bundle contents (as a folder basically)\n\n-t "Title text"\t\tbutton/list/text: window title (can be hardcoded)\n\n-v\t\t\tall: output results in format suitable for initializing shell variables using eval\n-V\t\t\tall: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from "osascript"\n\n-X\t\t\talert/button: kill any "System Events" based windows (-a specified), useful for non-Blocking without give up\n\nshui sets these GLOBAL variables within the script's running context (use -v to output these if shui is standalone/non-embedded):\n\tlastButton - value of button from button, text, and list replies\n\tlastText   - Text string from text reply\n\tlastChoice - File or Folder Unix path from files/filename/folders\n\tlastGaveUp - true or false, button and text reply types only, when a give up (-g) value is specified\n\tlastCancel - true or false, since Cancel produces an error and no result this helps determine if clicked\n\tlastResult - full Result output (stdout) from osascript that is parsed into the above values\n\tlastError  - full Error (stderr) output from osascript
+shui - add Applescript user interaction to your shell script (https://github.com/brunerd/shui)\n\nUsage:\nshui [<UI Type>] -p "<prompt text>" \n\nUI Types:\nalert: alert with icon of the calling appication (use -a), prompt (-p) is bold, message text (-P) is smaller, can set level (-L) to critical\napplication: presents list of Launch Services registered applicatins can specify -m for multiple\nbutton (default): button based reply, use -b to change button names (max 3), defaults to "Cancel,OK" like Applescript does\ncolor: no options, presents color picker and returns "R,G,B" with individual values (0-65535)\nfile: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions or UTIs, -h hidden items, -s show bundle contents\nfolder: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions, -h hidden items, -s show bundle contents\nlist: pick one or mutiple (-m) items from a list of choices, use -D for custom delimiter (comma default)\ntext: like button but with a single line text entry box, set pre-filled text with -P, hidden text with -h\nurl: returns a URL, default is file servers, use -S to set the kind of server to look for, valid value listed below\n\nRequired:\n-p "prompt text"\talert/button/file/folder/list: the text prompt presented to the user, required for all type (except color)\n\nOptions (begins with UI type(s) which apply or "all"):\n\n-a "<application>"\tall (except filename): specify the application that will present the Applescript dialog, alert will have app icon and block app\n\n-b "<button>;...;..."\tbutton: max 3 button names, comma or semi-colon delimited (if commas AND semi-colons are present, semis "win") \n\t\t\t\t\t\tif no buttons specified it defaults to the standard Applescript "Cancel,OK"\n-b "<OK>,[<Cancel>]"\tlist: max 2 button names, comma delimited, first is the OK button name, second is Cancel button name (optional)\n\n-B "n"\t\t\tall: beep n number of times\n\n-c "name/number"\tbutton: specify the cancel button by name or number (use with alert and buttons named "Cancel")\n\n-d "name/number"\tbutton: default button name or number (0 will suppress Applescript OK button default if -b not specified)\n-d "<Folder Path>"\tfile/folder: default location (Unix Path), using ~ will resolve to the console user's home folder\n\n-D "<delimiter>"\tlist: Delimiter for -l list items, can specify literal character like $'\\n' or use these two named shortcuts "LF" "IFS"\n\n-e \t\t\tlist: allow empty selection\n\n-g "seconds"\t\talert/button: give-up timeout in seconds (dismisses windows and moves on)\n\n-h\t\t\ttext: hidden text entry (dots)\n-h\t\t\tfile/folder: show hidden files in picker\n\n-i "<path>"\t\tbutton: path to icon file or application bundle (Icon^M first, then Info.plist)\n\n-l "item,item,..."\tlist: items for list, comma delimited is default unless newline is detected (change delimiter with -D)\n\n-L "<level>"\t\talert: default is ‌"informational"/"‌warning" (same), "critical" adds a caution sign over the calling app (-a) icon\n\n-m\t\t\tapplication/file/folder/list: allow multiple selections\n\n-n\t\t\talert/button: non-Blocking window, spawns to a background and moves on, response is not captured, one button maximum\n \t\t\tNote: If this is NOT the last alert window it is advisable to use a giveup (-g) value, additional dialogs will occlude previous ones (use -X to clear)\n\n-N\t\t\talert/button: same as (-n) non-blocking window except button 1 is default\n\n-o\t\t\tall: output shell arguments, Applescript code and raw Results and Errors\n\n-P "message text"\talert: "parenthetical" message text below the bold prompt text\n-P "<R>,<G>,<B>"\tcolor: pre-chosen RGB color values 0-65536\n-P "filename"\t\tfilename: pre-filled file name (default folder set with -d)\n-P "extension,UTI,..."\tfile: "preferred" file extensions/UTIs available to choose in picker\n-P "item,item..."\tlist: pre-chosen items, default delimiter is comma unless a newline is present or can be set with -D\n-P "pre-fill text"\ttext: pre-filled text (may be hidden with -h)\n\n-S "<Service>"\t\turl: look for specific services, useful values are: "file" (default) and "web" \n\t\t\tLess useful but still valid values are: "ftp", "media", "telnet", "news", "remote" (applications), and "directory" (services)\n\n-s\t\t\tfile/folder: show package/bundle contents (as a folder basically)\n\n-t "Title text"\t\tbutton/list/text: window title (can be hardcoded)\n\n-v\t\t\tall: output results in format suitable for initializing shell variables\n-V\t\t\tall: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from osascript (-o)\n\n-X\t\t\talert/button: kill ALL osascript and "System Events" processes, like orphaned non-Blocking (background) windows. Use with CAUTION!\n-x\t\t\talert/button: kill only child osascript processes belonging to the running script (embedded usage only)\n\nshui sets these GLOBAL variables within the script's running context (use -v to output these if shui is standalone/non-embedded):\n\tlastButton - value of button from button, text, and list replies\n\tlastText   - Text string from text reply\n\tlastChoice - File or Folder Unix path from files/filename/folders\n\tlastGaveUp - true or false, button and text reply types only, when a give up (-g) value is specified\n\tlastCancel - true or false, since Cancel produces an error and no result this helps determine if clicked\n\tlastResult - full Result output (stdout) from osascript that is parsed into the above values\n\tlastError  - full Error (stderr) output from osascript\n\tlastPID    - the child PID of a non-blocking (-n) alert or button (excluding -a invoked)
 EOT
 
 ####################
@@ -140,7 +140,7 @@ fi
 
 # a leading : colon turns on SILENT error reporting
 # https://stackoverflow.com/questions/16483119/example-of-how-to-use-getopts-in-bash
-while getopts ":B:L:t:g:P:p:i:b:c:D:S:d:l:a:nehmNsovVX" option; do
+while getopts ":B:L:t:g:P:p:i:b:c:D:S:d:l:a:nehmNsovVXx" option; do
 
 	case "${option}" in
 		'a')local applicationNameArg="${OPTARG}";;
@@ -170,7 +170,9 @@ while getopts ":B:L:t:g:P:p:i:b:c:D:S:d:l:a:nehmNsovVX" option; do
 		'V')local variableFlag="1"
 			local outputFlag="1"
 			local variableFlagPlus="1";;
-		'X')local killSystemEventsFlag="1";;
+		#these are mutually exclusive
+		'X')[ -z "${killChildProcsOnly}" ] && local killAllProcs="1";;
+		'x')[ -z "${killAllProcs}" ] && local killChildProcsOnly="1";;
 	esac
 done
 
@@ -749,11 +751,34 @@ fi
 #output the applescript removing empty lines
 [ -n "$outputFlag" ] && (echo "Applescript:" >&2; cat <<< "$APPLESCRIPT" | sed '/^$/d' >&2; echo >&2)
 
-#kill previous System Events windows (killall does not work as expected)
-if [ -n "${killSystemEventsFlag}" ]; then
-	local sysEventsPID
-	for sysEventsPID in $(pgrep System\ Events); do
-		eval ${asuserPrefix} kill -9 "${sysEventsPID}"
+#-X big hammer - kill all System Events and osascript procs
+if [ -n "${killAllProcs}" ]; then
+	local sysEventsPID osascriptPID
+	#loop through all PIDs and kill -9 as the console user
+	for sysEventsPID in $(pgrep System\ Events); do eval ${asuserPrefix} kill -9 "${sysEventsPID}"; done
+	for osascriptPID in $(pgrep osascript); do eval ${asuserPrefix} kill -9 "${osascriptPID}"; done
+fi
+
+#-x little hammer - only kill System Events and osascript procs belonging to the calling script (only for embedded shui, not standalone, use -X)
+if [ -n "${killChildProcsOnly}" ]; then
+	local sysEventsPID osascriptPID childPID
+	local childPIDs=$(pgrep -P $$)
+	
+	#loop through all child PIDs
+	for childPID in $(pgrep -P $$); do 
+		local grandChildPID=$(pgrep -P $childPID)
+		#get the process name
+		local grandChildPIDString=$(ps ${grandChildPID} | tail -n +2)
+		#if the child process ends with osascript proceed
+		if grep -q "osascript$" <<< "${grandChildPIDString}"; then
+			#this process may still one process away because of sudo usage
+			if grep -q "sudo$" <<< "$(pgrep -laP $childPID)"; then
+				local childPIDToKill=$(pgrep -P $grandChildPID)
+			else
+				local childPIDToKill="${grandChildPID}"
+			fi
+		fi
+		eval ${asuserPrefix} kill -9 "${childPIDToKill}"
 	done
 fi
 
@@ -773,7 +798,19 @@ if [ -z "${nonBlockingFlag}" ]; then
 	lastError_escaped="$(sed -e $'s/\r/\\\\r/g' -e $'s/\t/\\\\t/g' -e $'s/\b/\\\\b/g' -e $'s/\f/\\\\f/g' -e $'s/\v/\\\\v/g' -e $'s/\'/\\\\\'/g' <<< "${lastError_escaped}")"
 else
 	#if running in the background just eval without capturing output or stderr
-	( eval ${asuserPrefix} /usr/bin/osascript &>/dev/null <<< "$APPLESCRIPT"; [ -e "${tempIcon}" ] && rm -f "${tempIcon}" ) &
+	{ ( eval ${asuserPrefix} /usr/bin/osascript &>/dev/null <<< "$APPLESCRIPT"; [ -e "${tempIcon}" ] && rm -f "${tempIcon}" ) & }
+	
+	local childPID=$!
+	local grandChildPID=$(pgrep -P ${childPID})
+
+	#only if the granchild PID exists proceed and this was not -a targetted
+	if [ -n "${grandChildPID}" -a -z "${tellApp_AS}" ]; then
+		if grep -q "sudo$" <<< "$(pgrep -laP $childPID)"; then
+			lastPID=$(pgrep -P $grandChildPID)
+		else
+			lastPID="${grandChildPID}"
+		fi
+	fi
 fi
 
 #only go through the effort if they clicked a button
@@ -872,7 +909,8 @@ if [ -n "${variableFlag}" ]; then
 	#raw output
 	/bin/echo "lastResult=\$'${lastResult_escaped}'"
 	/bin/echo "lastError=\$'${lastError_escaped}'"
-
+	#final child PID from a non-blocking alert/button
+	/bin/echo "lastPID='${lastPID}'"
 fi
 
 #if cancelled or had ANY error output: return non-zero for a shell fail
@@ -1024,22 +1062,25 @@ sleep 5
 shui button -a "System Events" -p "This window is now covering a window that is stuck... and this has a give up of 1 hour BUT it can be killed along with all other System Events based windows with -X\n\nWait for it... (10 seconds)" -b "Wait for it..." -g 3600 -i "stop" -d 1 -n -V
 echo "Script proceeding, sleeping 10 seconds..."
 sleep 10
-shui button -p 'BOOM!\nPrevious windows with System Events as the application can be cleared with -X\n' -X -b "OK" -V -N -i "/System/Library/CoreServices/Finder.app"
+shui button -p 'BOOM!\nAnonymous windows and those with System Events as the application (-a) can be cleared with -X\n' -X -b "OK" -V -N -i "/System/Library/CoreServices/Finder.app"
 echo "Script proceeding, sleeping 5 seconds..."
 sleep 5
-shui alert -p "Alerts can be non-Blocking too" -P "They sure can...\n\nIf you specify any other app besides System Events with -a they cannot be killed with -X" -N  -L "critical" -B 1 -X
+shui alert -p "Alerts can be non-Blocking too" -P "If you specify any OTHER app besides System Events with -a they CANNOT be killed with -X or -x" -N  -L "critical" -B 1 -X
 echo "Script proceeding, sleeping 7 seconds..."
 sleep 7
 }
 
 function znonBlockingButton-Anonymous_demo {
 #timeout
-shui button -p "Non-blocking windows (-n) WITHOUT a specified app (-a) will NOT block each other but they will still stack up on top of each other and you can't get results back from them either FYI'\nClick OK to spawn 3 pop-ups" -b "OK" -i "/System/Library/CoreServices/Finder.app" -V
-shui button -n -p "One non-blocking..." -b "OK" -i "stop" -V
-shui button -n -p "Two non-blocking..." -b "OK" -i "caution" -V
-shui button -n -p "Three non-blocking... sleeping 10 seconds" -b "OK" -i "note" -V
-sleep 10
-shui button -p "Click to go back to the main menu" -b "OK" -i "/System/Library/CoreServices/Finder.app" -V
+shui button -p "Non-blocking windows (-n) WITHOUT a specified app (-a) will NOT block each other but they WILL still stack up on top of each other.\n\nClick OK to spawn 3 pop-ups\n\nNote: You can't get results back from non-blocking buttons and alerts" -b "OK" -i "/System/Library/CoreServices/Finder.app" -V
+shui button -n -p "One non-blocking window..." -b "OK" -i "stop" -V
+sleep 2
+shui button -n -p "Two non-blocking windows..." -b "OK" -i "caution" -V
+sleep 2
+shui button -n -p "Three non-blocking windows!!!" -b "OK" -i "note" -V
+sleep 2
+shui button -p "Look under this window there are 3 other windows.Click Close All to close these windows with (-x) which ONLY closes osascript child processes in this script" -b "Close All" -i "stop" -V
+shui button -x -p "Boom. That killed all the windows.\n\n-X kills ALL osascript and System Event processes but -x is much more targetted and requires shui to be embedded for best results\n\nlastPID is a new global var for your script to track non-Blocking PIDs" -b "OK" -i "/System/Library/CoreServices/Finder.app" -V
 }
 
 
@@ -1114,7 +1155,8 @@ fi
 #build our list of function names ending in "_demo"
 testFunctionsList="$(grep ^function "${myPath}" | grep "_demo" | awk '{print $2}' | sort -df)"
 while :; do
-	shui list -D "LF" -l "${testFunctionsList}" -b "Run,Exit" -p "Pick one or more test functions to run..." -t "shui" -m -X
+	#the main menu using -x to kill any background windows
+	shui list -D "LF" -l "${testFunctionsList}" -b "Run,Exit" -p "Pick one or more test functions to run..." -t "shui" -m -x
 	#if it's empty quit (2nd button in list is ALWAYS Cancel) otherwise invoke the function
 	if [ -z "${lastChoice}" ]; then
 		exit
@@ -1131,13 +1173,12 @@ done
 ########
 
 case ${1} in
-
-"menu"|"demo")
-	#make a menu of all the test functions
-	testMenu
-	;;
-*)
-	#pass-through all arguments
-	shui "$@"
-	;;
+	"menu"|"demo")
+		#make a menu of all the test functions
+		testMenu
+		;;
+	*)
+		#pass-through all arguments
+		shui "$@"
+		;;
 esac
