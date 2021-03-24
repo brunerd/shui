@@ -22,7 +22,7 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 
 ## BEGIN SHUI FUNCTION ##
 function shui {
-local version="20210324"
+local version="20210325"
 : <<-EOL
 shui - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
@@ -634,7 +634,7 @@ case "${uiType}" in
 						#remove first 260 bytes (3 ASCII chars) (why? I haven't looked too hard)
 						xxd -r -p - <<< "${resourceHexString:780}" > "${tempIcon}"
 						#as long as the result is NOT "data" attempt to use this as an icon
-						[ -z "$(grep ": data" <<< "$(file "${tempIcon}")")" ] && alertIconUnixPath="${tempIcon}"
+						[ -z "$(grep ": data" <<< "$(file "${tempIcon}")")" ] && local alertIconUnixPath="${tempIcon}"
 					fi					
 
 					#if alertIconUnixPath is empty (no Icon^M), see if this is a bundle with an Info.plist and interogate
