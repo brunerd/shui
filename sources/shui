@@ -140,7 +140,8 @@ fi
 
 # a leading : colon turns on SILENT error reporting
 # https://stackoverflow.com/questions/16483119/example-of-how-to-use-getopts-in-bash
-while getopts ":B:L:t:g:P:p:i:b:c:D:S:d:l:a:nehmNsovVXx" option; do
+
+local option; while getopts ":B:L:t:g:P:p:i:b:c:D:S:d:l:a:nehmNsovVXx" option; do
 
 	case "${option}" in
 		'a')local applicationNameArg="${OPTARG}";;
@@ -151,7 +152,7 @@ while getopts ":B:L:t:g:P:p:i:b:c:D:S:d:l:a:nehmNsovVXx" option; do
 		'D')local listDelimiter="${OPTARG}";;
 		'e')local withEmpty_AS="with empty selection allowed";;
 		'g')local giveupSeconds="${OPTARG}";;
-		'h')local option_H_flag="1";;
+		'h')local option_h_flag="1";;
 		'i')local iconArgument="${OPTARG}";;
 		'L')local alertLevel_AS="as ${OPTARG}";;
 		'l')local listItems="$(echo -e "${OPTARG}" | sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g')";;
@@ -325,7 +326,8 @@ case "${uiType}" in
 	"file"*|"folder")
 
 		#show hidden/invisible files
-		[ "${option_H_flag:=0}" -eq 1 ] && local withInvisibles_AS="with invisibles"
+		local option_h_flag
+		[ "${option_h_flag:=0}" -eq 1 ] && local withInvisibles_AS="with invisibles"
 
 		#validate the provided default location
 		if [ -d "${defaultOption}" ]; then
@@ -667,7 +669,8 @@ case "${uiType}" in
 		fi
 
 		#hidden text (dots)
-		[ "${option_H_flag:=0}" -eq 1 ] && local withHiddenAnswer_AS="with hidden answer"
+		local option_h_flag
+		[ "${option_h_flag:=0}" -eq 1 ] && local withHiddenAnswer_AS="with hidden answer"
 
 		#it makes no sense for a non-Blocking window to allow text entry, so just ignore
 		if [ -n "${nonBlockingFlag}" -a "${uiType}" = "text" ]; then
