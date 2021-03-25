@@ -22,7 +22,7 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 
 ## BEGIN SHUI FUNCTION ##
 function shui {
-local version="20210325"
+local version="20210326"
 : <<-EOL
 shui - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
