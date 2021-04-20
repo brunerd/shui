@@ -22,7 +22,7 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 
 ## BEGIN SHUI FUNCTION ##
 function shui {
-local version="20210326"
+local version="20210420"
 : <<-EOL
 shui - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
@@ -634,9 +634,9 @@ case "${uiType}" in
 						#hex the ResourceFork as ASCII
 						local resourceHexString="$(xattr -p com.apple.ResourceFork "${iconArgument}/Icon"$'\r')"
 						#remove first 260 bytes (3 ASCII chars) (why? I haven't looked too hard)
-						xxd -r -p - <<< "${resourceHexString:780}" > "${tempIcon}"
+						[ -n "${resourceHexString}" ] && xxd -r -p - <<< "${resourceHexString:780}" > "${tempIcon}"
 						#as long as the result is NOT "data" attempt to use this as an icon
-						[ -z "$(grep ": data" <<< "$(file "${tempIcon}")")" ] && local alertIconUnixPath="${tempIcon}"
+						if [ -s "${tempIcon}" ] && [ -z "$(grep ": data" <<< "$(file "${tempIcon}")")" ]; then local alertIconUnixPath="${tempIcon}"; fi
 					fi					
 
 					#if alertIconUnixPath is empty (no Icon^M), see if this is a bundle with an Info.plist and interogate
@@ -781,7 +781,7 @@ if [ -n "${killChildProcsOnly}" ]; then
 				local childPIDToKill="${grandChildPID}"
 			fi
 		fi
-		eval ${asuserPrefix} kill -9 "${childPIDToKill}"
+		[ -n "${childPIDToKill}" ] && eval ${asuserPrefix} kill -9 "${childPIDToKill}"
 	done
 fi
 
@@ -804,6 +804,8 @@ else
 	{ ( eval ${asuserPrefix} /usr/bin/osascript &>/dev/null <<< "$APPLESCRIPT"; [ -e "${tempIcon}" ] && rm -f "${tempIcon}" ) & }
 	
 	local childPID=$!
+	#pause a beat, if too quick the child processes will not exist yet
+	sleep .2
 	local grandChildPID="$(pgrep -P ${childPID})"
 
 	#only if the granchild PID exists proceed and this was not -a targetted
