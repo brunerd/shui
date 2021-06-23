@@ -77,7 +77,7 @@ Options (begins with UI type(s) which apply or "all"):
 -o			all: output shell arguments, Applescript code and raw Results and Errors
 
 -P "message text"	alert: "parenthetical" message text below the bold prompt text
--P "<R>,<G>,<B>"	color: pre-chosen RGB color values 0-65536
+-P "<R>,<G>,<B>"	color: pre-chosen RGB color values 0-65535
 -P "filename"		filename: pre-filled file name (default folder set with -d)
 -P "extension,UTI,..."	file: "preferred" file extensions/UTIs available to choose in picker
 -P "item,item..."	list: pre-chosen items, default delimiter is comma unless a newline is present or can be set with -D
@@ -88,7 +88,7 @@ Options (begins with UI type(s) which apply or "all"):
 
 -s			file/folder: show package/bundle contents (as a folder basically)
 
--t "Title text"		button/list/text: window title (can be hardcoded)
+-t "Title text"		button/list/text: window title
 
 -v			all: output results in format suitable for initializing shell variables
 -V			all: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from osascript (-o)
@@ -105,4 +105,10 @@ shui sets these GLOBAL variables within the script's running context (use -v to 
 	lastResult - full Result output (stdout) from osascript that is parsed into the above values
 	lastError  - full Error (stderr) output from osascript
 	lastPID    - the child PID of a non-blocking (-n) alert or button (excluding -a invoked)
+
+shui will use these GLOBAL variables set in your script or exported in your running shell
+	shui_defaultIcon - icon path for button UIs
+	shui_defaultTitle - title string for button, text, and list UIs
+	shui_defaultOption - button by name or number or file/folder by path
+	shui_defaultColor - default color (picker) UI "<R>,<G>,<B>" 0-65535
 ```
