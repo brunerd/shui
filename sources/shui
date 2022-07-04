@@ -1,6 +1,6 @@
 #!/bin/zsh
 #!/bin/bash
-#shui - a zsh/bash function to add Applescript user interaction to your macOS (10.9+) script 
+#shui (20220702) - a zsh/bash function to add Applescript user interaction to your macOS (10.9+) script 
 
 #this script includes demonstration code, use it to test syntax out or run the demo function with: "./shui demo", for help see "./shui help"
 #to use in your script: copy and paste ONLY the function shui {...} into your script, for reduced line count use shui.min
@@ -13,7 +13,7 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 [ -z "${shiftKeyDown}" ] && shiftKeyDown="$(/usr/bin/python -c 'import Cocoa; print Cocoa.NSEvent.modifierFlags() & Cocoa.NSShiftKeyMask > 1')"
 
 #set xtraceFlag if /tmp/debug found or Command key is held down
-[ -f /tmp/debug -o "$shiftKeyDown" = "true" -o "$shiftKeyDown" = "True" ] && xtraceFlag=1
+[ -f /tmp/debug ] || [ "$shiftKeyDown" = "true" ] || [ "$shiftKeyDown" = "True" ] && xtraceFlag=1
 [ -n "$xtraceFlag" ] && set -x
 
 ############
@@ -21,8 +21,10 @@ shiftKeyDown="$(osascript -l JavaScript -e "ObjC.import('Cocoa'); ($.NSEvent.mod
 ############
 
 ## BEGIN SHUI FUNCTION ##
-function shui {
-local version="20210622"
+function shui(){
+#turn xtrace off temporarily
+[ -n "${-//[^x]/}" ] && { local xTrace=1; set +x; } 2>/dev/null
+local version="20220702"
 : <<-EOL
 shui - a zsh/bash function to easily add Applescript user interaction to your script (https://github.com/brunerd/shui)
 Copyright (c) 2020 Joel Bruner
@@ -40,7 +42,7 @@ EOL
 [ "$(cut -d. -f1 <<< $(sw_vers -productVersion))" -eq 10 -a "$(cut -d. -f2 <<< $(sw_vers -productVersion))" -le 8 ] && echo "shui requires macOS 10.9 and above" >&2 && return 1 
 
 #if the silentMode or shui_silentMode flag is set to Y return
-[ "${shui_silentMode}" = "Y" -o "${silentMode}" = "Y" ] && return
+[ "${shui_silentMode}" = "Y" ] || [ "${silentMode}" = "Y" ] && return
 
 ##############
 ## VARIABLES #
@@ -96,12 +98,12 @@ fi
 local asuserPrefix="launchctl asuser ${consoleUserID} sudo -u ${consoleUser}"
 
 #10.9 and 10.10 launchctl asuser only runs as root
-if [ "$(cut -d. -f1 <<< $(sw_vers -productVersion))" -eq 10 -a "$(cut -d. -f2 <<< $(sw_vers -productVersion))" -le 10 ]; then
+if [ "$(cut -d. -f1 <<< $(sw_vers -productVersion))" -eq 10 ] && [ "$(cut -d. -f2 <<< $(sw_vers -productVersion))" -le 10 ]; then
 	#unset if we are the console user
 	if [ "${USER}" = "${consoleUser}" ]; then
 		unset asuserPrefix
 	#early macOS versions got touchy about this
-	elif [ "${USER}" != "${consoleUser}" -a "$UID" -ne 0 -a "${SUDO_USER}" != "${consoleUser}" ]; then
+	elif [ "${USER}" != "${consoleUser}" ] && [ "$UID" -ne 0 ] && [ "${SUDO_USER}" != "${consoleUser}" ]; then
 		echo "Script user ($USER) ≠ console user ($consoleUser), please run as root on 10.10 and 10.9" >&2
 		return 1
 	fi
@@ -111,7 +113,7 @@ fi
 local APPLESCRIPT 
 
 read -r -d '' helpText <<'EOT'
-shui - add Applescript user interaction to your shell script (https://github.com/brunerd/shui)\n\nUsage:\nshui [<UI Type>] -p "<prompt text>" \n\nUI Types:\nalert: alert with icon of the calling appication (use -a), prompt (-p) is bold, message text (-P) is smaller, can set level (-L) to critical\napplication: presents list of Launch Services registered applicatins can specify -m for multiple\nbutton (default): button based reply, use -b to change button names (max 3), defaults to "Cancel,OK" like Applescript does\ncolor: no options, presents color picker and returns "R,G,B" with individual values (0-65535)\nfile: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions or UTIs, -h hidden items, -s show bundle contents\nfolder: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions, -h hidden items, -s show bundle contents\nlist: pick one or mutiple (-m) items from a list of choices, use -D for custom delimiter (comma default)\ntext: like button but with a single line text entry box, set pre-filled text with -P, hidden text with -h\nurl: returns a URL, default is file servers, use -S to set the kind of server to look for, valid value listed below\n\nRequired:\n-p "prompt text"\talert/button/file/folder/list: the text prompt presented to the user, required for all type (except color)\n\nOptions (begins with UI type(s) which apply or "all"):\n\n-a "<application>"\tall (except filename): specify the application that will present the Applescript dialog, alert will have app icon and block app\n\n-b "<button>;...;..."\tbutton: max 3 button names, comma or semi-colon delimited (if commas AND semi-colons are present, semis "win") \n\t\t\t\t\t\tif no buttons specified it defaults to the standard Applescript "Cancel,OK"\n-b "<OK>,[<Cancel>]"\tlist: max 2 button names, comma delimited, first is the OK button name, second is Cancel button name (optional)\n\n-B "n"\t\t\tall: beep n number of times\n\n-c "name/number"\tbutton: specify the cancel button by name or number (use with alert and buttons named "Cancel")\n\n-d "name/number"\tbutton: default button name or number (0 will suppress Applescript OK button default if -b not specified)\n-d "<Folder Path>"\tfile/folder: default location (Unix Path), using ~ will resolve to the console user's home folder\n\n-D "<delimiter>"\tlist: Delimiter for -l list items, can specify literal character like $'\\n' or use these two named shortcuts "LF" "IFS"\n\n-e \t\t\tlist: allow empty selection\n\n-g "seconds"\t\talert/button: give-up timeout in seconds (dismisses windows and moves on)\n\n-h\t\t\ttext: hidden text entry (dots)\n-h\t\t\tfile/folder: show hidden files in picker\n\n-i "<path>"\t\tbutton: path to icon file or application bundle (Icon^M first, then Info.plist)\n\n-l "item,item,..."\tlist: items for list, comma delimited is default unless newline is detected (change delimiter with -D)\n\n-L "<level>"\t\talert: default is ‌"informational"/"‌warning" (same), "critical" adds a caution sign over the calling app (-a) icon\n\n-m\t\t\tapplication/file/folder/list: allow multiple selections\n\n-n\t\t\talert/button: non-Blocking window, spawns to a background and moves on, response is not captured, one button maximum\n \t\t\tNote: If this is NOT the last alert window it is advisable to use a giveup (-g) value, additional dialogs will occlude previous ones (use -X to clear)\n\n-N\t\t\talert/button: same as (-n) non-blocking window except button 1 is default\n\n-o\t\t\tall: output shell arguments, Applescript code and raw Results and Errors\n\n-P "message text"\talert: "parenthetical" message text below the bold prompt text\n-P "<R>,<G>,<B>"\tcolor: pre-chosen RGB color values 0-65535\n-P "filename"\t\tfilename: pre-filled file name (default folder set with -d)\n-P "extension,UTI,..."\tfile: "preferred" file extensions/UTIs available to choose in picker\n-P "item,item..."\tlist: pre-chosen items, default delimiter is comma unless a newline is present or can be set with -D\n-P "pre-fill text"\ttext: pre-filled text (may be hidden with -h)\n\n-S "<Service>"\t\turl: look for specific services, useful values are: "file" (default) and "web" \n\t\t\tLess useful but still valid values are: "ftp", "media", "telnet", "news", "remote" (applications), and "directory" (services)\n\n-s\t\t\tfile/folder: show package/bundle contents (as a folder basically)\n\n-t "Title text"\t\tbutton/list/text: window title\n\n-v\t\t\tall: output results in format suitable for initializing shell variables\n-V\t\t\tall: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from osascript (-o)\n\n-X\t\t\talert/button: kill ALL osascript and "System Events" processes, like orphaned non-Blocking (background) windows. Use with CAUTION!\n-x\t\t\talert/button: kill only child osascript processes belonging to the running script (embedded usage only)\n\nshui sets these GLOBAL variables within the script's running context (use -v to output these if shui is standalone/non-embedded):\n\tlastButton - value of button from button, text, and list replies\n\tlastText   - Text string from text reply\n\tlastChoice - File or Folder Unix path from files/filename/folders\n\tlastGaveUp - true or false, button and text reply types only, when a give up (-g) value is specified\n\tlastCancel - true or false, since Cancel produces an error and no result this helps determine if clicked\n\tlastResult - full Result output (stdout) from osascript that is parsed into the above values\n\tlastError  - full Error (stderr) output from osascript\n\tlastPID    - the child PID of a non-blocking (-n) alert or button (excluding -a invoked)\n\nshui will use these GLOBAL variables set in your script or exported in your running shell\n\tshui_defaultIcon - icon path for button UIs\n\tshui_defaultTitle - title string for button, text, and list UIs\n\tshui_defaultOption - button by name or number or file/folder by path\n\tshui_defaultColor - default color (picker) UI "<R>,<G>,<B>" 0-65535
+shui - add Applescript user interaction to your shell script (https://github.com/brunerd/shui)\n\nUsage:\nshui [<UI Type>] -p "<prompt text>" \n\nUI Types:\nalert: alert with icon of the calling appication (use -a), prompt (-p) is bold, message text (-P) is smaller, can set level (-L) to critical\napplication: presents list of Launch Services registered applicatins can specify -m for multiple\nbutton (default): button based reply, use -b to change button names (max 3), defaults to "Cancel,OK" like Applescript does\ncolor: no options, presents color picker and returns "R,G,B" with individual values (0-65535)\nfile: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions or UTIs, -h hidden items, -s show bundle contents\nfolder: pick one file or multiple (-m), -d for default folder, -P to specify preferred file extensions, -h hidden items, -s show bundle contents\nlist: pick one or mutiple (-m) items from a list of choices, use -D for custom delimiter (comma default)\ntext: like button but with a single line text entry box, set pre-filled text with -P, hidden text with -h\nurl: returns a URL, default is file servers, use -S to set the kind of server to look for, valid value listed below\n\nRequired:\n-p "prompt text"\talert/button/file/folder/list: the text prompt presented to the user, required for all type (except color)\n\nOptions (begins with UI type(s) which apply or "all"):\n\n-a "<application>"\tall (except filename): specify the application that will present the Applescript dialog, alert will have app icon and block app\n\n-b "<button>;...;..."\tbutton: max 3 button names, comma or semi-colon delimited (if commas AND semi-colons are present, semis "win") \n\t\t\t\t\t\tif no buttons specified it defaults to the standard Applescript "Cancel,OK"\n-b "<OK>,[<Cancel>]"\tlist: max 2 button names, comma delimited, first is the OK button name, second is Cancel button name (optional)\n\n-B "n"\t\t\tall: beep n number of times\n\n-c "name/number"\tbutton: specify the cancel button by name or number (use with alert and buttons named "Cancel")\n\n-d "name/number"\tbutton: default button name or number (0 will suppress Applescript OK button default if -b not specified)\n-d "<Folder Path>"\tfile/folder: default location (Unix Path), using ~ will resolve to the console user's home folder\n\n-D "<delimiter>"\tlist: Delimiter for -l list items, can specify literal character like $'\\n' or use these two named shortcuts "LF" "IFS"\n\n-e \t\t\tlist: allow empty selection\n\n-g "seconds"\t\talert/button: give-up timeout in seconds (dismisses windows and moves on)\n\n-h\t\t\ttext: hidden text entry (dots)\n-h\t\t\tfile/folder: show hidden files in picker\n\n-i "<path>"\t\tbutton: path to icon file or application bundle (Icon^M first, then Info.plist)\n\n-l "item,item,..."\tlist: items for list, comma delimited is default unless newline is detected (change delimiter with -D)\n\n-L "<level>"\t\talert: default is "informational"/"warning" (same), "critical" adds a caution sign over the calling app (-a) icon\n\n-m\t\t\tapplication/file/folder/list: allow multiple selections\n\n-n\t\t\talert/button: non-Blocking window, spawns to a background and moves on, response is not captured, one button maximum\n \t\t\tNote: If this is NOT the last alert window it is advisable to use a giveup (-g) value, additional dialogs will occlude previous ones (use -X to clear)\n\n-N\t\t\talert/button: same as (-n) non-blocking window except button 1 is default\n\n-o\t\t\tall: output shell arguments, Applescript code and raw Results and Errors\n\n-P "message text"\talert: "parenthetical" message text below the bold prompt text\n-P "<R>,<G>,<B>"\tcolor: pre-chosen RGB color values 0-65535\n-P "filename"\t\tfilename: pre-filled file name (default folder set with -d)\n-P "extension,UTI,..."\tfile: "preferred" file extensions/UTIs available to choose in picker\n-P "item,item..."\tlist: pre-chosen items, default delimiter is comma unless a newline is present or can be set with -D\n-P "pre-fill text"\ttext: pre-filled text (may be hidden with -h)\n\n-S "<Service>"\t\turl: look for specific services, useful values are: "file" (default) and "web" \n\t\t\tLess useful but still valid values are: "ftp", "media", "telnet", "news", "remote" (applications), and "directory" (services)\n\n-s\t\t\tfile/folder: show package/bundle contents (as a folder basically)\n\n-t "Title text"\t\tbutton/list/text: window title\n\n-v\t\t\tall: output results in format suitable for initializing shell variables\n-V\t\t\tall: output results in format suitable for initializing shell variables plus Applescript and raw Result/Error output from osascript (-o)\n\n-X\t\t\talert/button: kill ALL osascript and "System Events" processes, like orphaned non-Blocking (background) windows. Use with CAUTION!\n-x\t\t\talert/button: kill only child osascript processes belonging to the running script (embedded usage only)\n\nshui sets these GLOBAL variables within the script's running context (use -v to output these if shui is standalone/non-embedded):\n\tlastButton - value of button from button, text, and list replies\n\tlastText   - Text string from text reply\n\tlastChoice - File or Folder Unix path from files/filename/folders\n\tlastGaveUp - true or false, button and text reply types only, when a give up (-g) value is specified\n\tlastCancel - true or false, since Cancel produces an error and no result this helps determine if clicked\n\tlastResult - full Result output (stdout) from osascript that is parsed into the above values\n\tlastError  - full Error (stderr) output from osascript\n\tlastPID    - the child PID of a non-blocking (-n) alert or button (excluding -a invoked)\n\nshui will use these GLOBAL variables set in your script or exported in your running shell\n\tshui_defaultIcon - icon path for button UIs\n\tshui_defaultTitle - title string for button, text, and list UIs\n\tshui_defaultOption - button by name or number or file/folder by path\n\tshui_defaultColor - default color (picker) UI "<R>,<G>,<B>" 0-65535
 EOT
 
 ####################
@@ -175,23 +177,23 @@ local option; while getopts ":B:L:t:g:P:p:i:b:c:D:S:d:l:a:nehmNsovVXx" option; d
 done
 
 #if we don't have a promptString at the minimum then exit (unless this is for a color or url)
-if [ -z "${promptString}" -a "${uiType}" != "color" -a "${uiType}" != "url" ]; then
+if [ -z "${promptString}" ] && [ "${uiType}" != "color" ] && [ "${uiType}" != "url" ]; then
 	echo "Please provide prompt text in the form of: shui <UI Type> -p \"<prompt text>\"\nFor usage: shui help\nFor examples: shui demo" >&2
 	return
 fi
 
 #if we have a default application and nothing is specified, use it
-if [ -z "${applicationNameArg}" -a -n "${defaultApplication}" ]; then
+if [ -z "${applicationNameArg}" ] && [ -n "${defaultApplication}" ]; then
 	local applicationNameArg="${defaultApplication}"
 fi
 
 #if we have a default icon (and it exists) and nothing is specified for -i, use it
-if [ -z "${iconArgument}" -a -e "${defaultIcon}" ]; then
+if [ -z "${iconArgument}" ] && [ -e "${defaultIcon}" ]; then
 	local iconArgument="${defaultIcon}"
 fi
 
 #color seems needs an application, use System Events if not specified
-if [ "${uiType}" = "color" -a -z "$applicationNameArg" ]; then
+if [ "${uiType}" = "color" ] && [ -z "$applicationNameArg" ]; then
 	local applicationNameArg="System Events"
 fi
 
@@ -204,7 +206,7 @@ fi
 
 #applies only to: text, password, button
 #if no -t "titleString" specified, use default (as set by env var $shui_defaultTitle)
-[ -z "${titleString}" -a -n "${defaultTitle}" ] && local titleString="${defaultTitle}"
+[ -z "${titleString}" ] && [ -n "${defaultTitle}" ] && local titleString="${defaultTitle}"
 
 #see what kind of window we need to show and ready buttons and Applescript code
 case "${uiType}" in
@@ -264,7 +266,7 @@ case "${uiType}" in
 		fi
 		
 		#concatenate array into ", " delimited  string
-		#arrayoffset allow both bash and zsh arrays to work correctly
+		#arrayoffset allows both bash and zsh arrays to work correctly
 		for (( j=$(( 1 - ${array_offset:-0} )); j <= $(( ${#listArray[@]} - ${array_offset:-0} )); j++ )); do
 			[ -z "$listItems_AS" ] && listItems_AS+="\"${listArray[$j]}\"" || listItems_AS+=", \"${listArray[$j]}\""
 		done
@@ -437,7 +439,7 @@ case "${uiType}" in
 			local G="$(cut -d, -f2 <<< "${preFillString}")"
 			local B="$(cut -d, -f3 <<< "${preFillString}")"
 			#make sure each RGB value is between 0 and 65535
-			if [ "${R}" -ge 0 -a "${R}" -le 65535 -a "${G}" -ge 0 -a "${G}" -le 65535 -a "${B}" -ge 0 -a "${B}" -le 65535 ]; then		
+			if [ "${R}" -ge 0 ] && [ "${R}" -le 65535 ] && [ "${G}" -ge 0 ] && [ "${G}" -le 65535 ] && [ "${B}" -ge 0 ] && [ "${B}" -le 65535 ]; then		
 				defaultColor_AS="default color {${preFillString}}"
 			fi
 		elif [ -n "${defaultColorRGB}" ]; then
@@ -519,7 +521,7 @@ case "${uiType}" in
 		[ -z "${nonBlockingFlag}" ] && local buttonCountLimit=3 || local buttonCountLimit=1
 
 		#non-blocking with no buttons default to OK (otherwise we just take the first button for NB)
-		if [ -z "$buttonListArgs" -a -n "${nonBlockingFlag}" ]; then
+		if [ -z "$buttonListArgs" ] && [ -n "${nonBlockingFlag}" ]; then
 			local buttonListArgs="OK"
 		fi
 		
@@ -555,41 +557,41 @@ case "${uiType}" in
 		[ -n "${buttonListItems}" ] && buttons_AS="buttons {${buttonListItems}}"
 		
 		#if we have a -d default button specified... see if it's a number
-		if [ -n "${defaultOption}" -a "${defaultOption}" = "$(bc 2>/dev/null <<< "${defaultOption}")" ]; then
+		if [ -n "${defaultOption}" ] && [ "${defaultOption}" = "$(bc 2>/dev/null <<< "${defaultOption}")" ]; then
 			#ensure it's between 1 less than or equal to the total button
-			if [ "${defaultOption}" -ge 1 -a "${defaultOption}" -le "${buttonCount}" ]; then
+			if [ "${defaultOption}" -ge 1 ] && [ "${defaultOption}" -le "${buttonCount}" ]; then
 				local defaultButton_AS="default button ${defaultOption}"
 			fi			
 		#otherwise if we have a button name see if it is the button list items (-n reduces list to 1 item)
-		elif [ -n "${defaultOption}" -a -n "$(grep -w "${defaultOption}" <<< "${buttonListItems}")" ]; then
+		elif [ -n "${defaultOption}" ] && [ -n "$(grep -w "${defaultOption}" <<< "${buttonListItems}")" ]; then
 			local defaultButton_AS="default button \"${defaultOption}\""
 		fi
 
 		#if we have a cancel button specified... see if it's a number
-		if [ -n "${cancelButton}" -a "${cancelButton}" = "$(bc 2>/dev/null <<< "${cancelButton}")" ]; then
+		if [ -n "${cancelButton}" ] && [ "${cancelButton}" = "$(bc 2>/dev/null <<< "${cancelButton}")" ]; then
 			#ensure it's between 1 less than or equal to the total button
-			if [ "${cancelButton}" -ge 1 -a "${cancelButton}" -le "${buttonCount}" ]; then
+			if [ "${cancelButton}" -ge 1 ] && [ "${cancelButton}" -le "${buttonCount}" ]; then
 				local cancelButton_AS="cancel button ${cancelButton}"
 			fi			
 
 		#otherwise make sure we have something and it matches a button name
-		elif [ -n "${cancelButton}" -a -n "$(grep -w "${cancelButton}" <<< "${buttonListArgs}")" ]; then
+		elif [ -n "${cancelButton}" ] && [ -n "$(grep -w "${cancelButton}" <<< "${buttonListArgs}")" ]; then
 			local cancelButton_AS="cancel button \"${cancelButton}\""
 		fi
 		
 		## Icons
 		#if the icon argument is a file and this is not an alert
-		if [ -f "${iconArgument}" -a "${uiType}" != "alert" ]; then
+		if [ -f "${iconArgument}" ] && [ "${uiType}" != "alert" ]; then
 			#convert unix path to Applescript
 			local withIcon_AS="with icon file (POSIX file \"${iconArgument}\")"
 		#if this is NOT a valid path (and it's not an alert) let's see what else it could be
-		elif [ ! -f "${iconArgument}" -a "${uiType}" != "alert" ]; then
+		elif [ ! -f "${iconArgument}" ] && [ "${uiType}" != "alert" ]; then
 			#check if we are given a name or a path of some kind for an icon
 			case "${iconArgument}" in
 				"stop"|"0")
 				
 					#if no app then this is System Event with cannot show a "stop" icon
-					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
+					if [ -z "${applicationNameArg}" ] || [ "${applicationNameArg}" = "System Events" ]; then
 						#alert icon to pass to alertUserConsole
 						local alertIconUnixPath="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertStopIcon.icns"
 					#otherwise any other app will overlay their icon over the stop sign
@@ -600,7 +602,7 @@ case "${uiType}" in
 				;;
 				"caution"|"2")
 					#if no app of System Events show a plain unbadged "caution" icon
-					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
+					if [ -z "${applicationNameArg}" ] || [ "${applicationNameArg}" = "System Events" ]; then
 						
 						#I tried with AlertCautionBadgeIcon.icns on 11+ but it is too small to be taken seriously
 						#local alertIconUnixPath="$(find "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/" -name 'AlertCaution*Icon.icns' | sort -r | head -n 1)"
@@ -616,7 +618,7 @@ case "${uiType}" in
 				;;
 				"note"|"1")
 					#if no app then this is System Event with cannot show a "note" icon
-					if [ -z "${applicationNameArg}" -o "${applicationNameArg}" = "System Events" ]; then
+					if [ -z "${applicationNameArg}" ] || [ "${applicationNameArg}" = "System Events" ]; then
 						#alert icon to pass to alertUserConsole
 						local alertIconUnixPath="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AlertNoteIcon.icns"
 					#otherwise any other app will overlay their icon over the stop sign
@@ -640,7 +642,7 @@ case "${uiType}" in
 					fi					
 
 					#if alertIconUnixPath is empty (no Icon^M), see if this is a bundle with an Info.plist and interogate
-					if [ -f "${iconArgument}"/Contents/Info.plist -a -z "${alertIconUnixPath}" ]; then
+					if [ -f "${iconArgument}"/Contents/Info.plist ] && [ -z "${alertIconUnixPath}" ]; then
 						local bundleIconFileName="$(defaults read "${iconArgument}"/Contents/Info.plist CFBundleIconFile 2>/dev/null)"
 						[ -z "${bundleIconFileName}" ] && bundleIconFileName="$(defaults read "${iconArgument}"/Contents/Info.plist CFBundleIconName 2>/dev/null)"
 						
@@ -673,7 +675,7 @@ case "${uiType}" in
 		[ "${option_h_flag:=0}" -eq 1 ] && local withHiddenAnswer_AS="with hidden answer"
 
 		#it makes no sense for a non-Blocking window to allow text entry, so just ignore
-		if [ -n "${nonBlockingFlag}" -a "${uiType}" = "text" ]; then
+		if [ -n "${nonBlockingFlag}" ] && [ "${uiType}" = "text" ]; then
 			unset nonBlockingFlag
 		fi
 		
@@ -683,7 +685,7 @@ case "${uiType}" in
 		fi
 		
 		#if blank and default is specified, use it 
-		if [ -z "${iconArgument}" -a -n "${defaultIcon}" ]; then
+		if [ -z "${iconArgument}" ] && [ -n "${defaultIcon}" ]; then
 			local iconArgument="${defaultIcon}"
 		fi
 		
@@ -810,7 +812,7 @@ else
 	local grandChildPID="$(pgrep -P ${childPID})"
 
 	#only if the granchild PID exists proceed and this was not -a targetted
-	if [ -n "${grandChildPID}" -a -z "${tellApp_AS}" ]; then
+	if [ -n "${grandChildPID}" ] && [ -z "${tellApp_AS}" ]; then
 		if grep -q "sudo$" <<< "$(pgrep -laP $childPID)"; then
 			lastPID="$(pgrep -P $grandChildPID)"
 		else
@@ -884,7 +886,7 @@ if [ -n "${lastResult}" ]; then
 			lastCancel="false"
 		;;
 	esac
-elif [ "${uiType}" = "url" -a -z "${lastError}" ]; then
+elif [ "${uiType}" = "url" ] && [ -z "${lastError}" ]; then
 	lastCancel="false"
 #this will catch the list cancel
 elif [ -z "${nonBlockingFlag}" ]; then
@@ -892,10 +894,10 @@ elif [ -z "${nonBlockingFlag}" ]; then
 fi
 
 #remove temp icon if it exists and NOT non-blocking 
-[ -e "${tempIcon}" -a -z "${nonBlockingFlag}" ] && rm -f "${tempIcon}"
+[ -e "${tempIcon}" ] && [ -z "${nonBlockingFlag}" ] && rm -f "${tempIcon}"
 
 #-o and -V will output the raw osascript Results and Errors to stderr to not interfere with -v output
-if [ -n "${outputFlag}" -o -n "${variableFlagPlus}" ]; then  
+if [ -n "${outputFlag}" ] || [ -n "${variableFlagPlus}" ]; then  
 	printf "Result:\n%s\n\n" "${lastResult}" >&2
 	printf "Error:\n%s\n\n" "${lastError}" >&2
 fi
@@ -920,7 +922,7 @@ if [ -n "${variableFlag}" ]; then
 fi
 
 #if cancelled or had ANY error output: return non-zero for a shell fail
-[ -n "${lastError}" -o "${lastCancel}" = "true" ] && return 1
+[ -n "${lastError}" ] || [ "${lastCancel}" = "true" ] && return 1
 }
 
 ## END SHUI FUNCTION ##
@@ -1172,6 +1174,9 @@ while :; do
 		done
 	fi
 done
+
+#if it was on before, turn xtrace back on
+[  "${xTrace:-0}" = 1 ] && { set -x; } 2>/dev/null
 }
 
 ########
