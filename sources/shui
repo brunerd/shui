@@ -1,6 +1,6 @@
 #!/bin/zsh
 #!/bin/bash
-#shui (20230120) - a zsh/bash function to add Applescript user interaction to your macOS (10.9+) script 
+#shui (20250610) - a zsh/bash function to add Applescript user interaction to your macOS (10.9+) script 
 
 #this script includes demonstration code, use it to test syntax out or run the demo function with: "./shui demo", for help see "./shui help"
 #to use in your script: copy and paste ONLY the "function shui(){...}" part into your script, for reduced line count use shui.min
@@ -132,7 +132,7 @@ shui (20230120) - add Applescript user interaction to your shell script (https:/
 		echo -e "No arguments given!\nFor usage: shui help\nFor examples: shui demo" >&2
 		return 1
 	elif [ "${1}" = "help" ]; then 
-		echo "${helpText}" >&2
+		echo "${helpText}" | less
 		return 0
 	elif [ "${1}" = "version" ]; then 
 		echo "${version}"
@@ -976,13 +976,14 @@ function button_demo {
 	shui button -p "${multiLineText}" -b "Yes,No,Maybe" -t "Greetings" -i "caution" -d "Yes" -V
 }
 
-#unencode emoji work just fine also (just not on Jamf, use hex or octal encodings, jpt can do this: https://github.com/brunerd/jpt)
+#un-encoded emoji work just fine except Jamf (the db usually can't handle 4-byte encoded UTF-8)
+#use hex or octal encodings to work around: use shef (https://github.com/brunerd/shef) or clui (https://github.com/brunerd/clui)
 function 1emoji_demo {
 	multiLineText="shui works with Unicode and Emoji 
 
 \0342\0234\0205 Dialogs, buttons, pre-fills, etc...
 
-Note: Multibyte emojis in Jamf Pro scripts MUST be encoded, you may reliably use these encoding schemes
+Note: 4-byte encoded UTF-8 MUST be encoded for use in in Jamf Pro scripts, you may reliably use these encoding schemes
 
 UTF-8 \\\\xhh Hex encoding:
 \\\\xf0\\\\x9f\\\\x98\\\\x8e = \xf0\x9f\x98\x8e
@@ -990,7 +991,9 @@ UTF-8 \\\\xhh Hex encoding:
 UTF-8 \\\\0nnn Octal encoding:
 \\\\0360\\\\0237\\\\0230\\\\0216 = \0360\0237\0230\0216
 
-Unicode characters can be encoded using jpt the JSON Power Tool: https://github.com/brunerd/jpt
+Unicode characters can be encoded using either:
+• shef: https://github.com/brunerd/shef
+• clui: https://github.com/brunerd/clui
 "
 
 	#you can use mutliline variables to neatly compose your invocation
